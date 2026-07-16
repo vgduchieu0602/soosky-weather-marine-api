@@ -1,0 +1,27 @@
+{
+  "name": "soosky-weather-marine-api",
+  "version": "1.0.0",
+  "description": "",
+  "type": "module",
+  "main": "app.js",
+  "scripts": {
+    "dev": "tsx watch src/app.ts",
+    "builld": "tsc --noEmit && esbuild src/app.ts --bundle --platform=node --format=esm --outfile=dist/app.js --packages=external",
+    "start": "node dist/app.js"
+  },
+  "engines": {"node": ">=22"},
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "dotenv": "^17.4.2",
+    "express": "^5.2.1"
+  },
+  "devDependencies": {
+    "@types/express": "^5.0.6",
+    "@types/node": "^26.1.1",
+    "esbuild": "^0.28.1",
+    "tsx": "^4.23.1",
+    "typescript": "^7.0.2"
+  }
+}
