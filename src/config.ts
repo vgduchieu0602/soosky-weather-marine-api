@@ -21,7 +21,7 @@ dotenv.config({
 
 const config = {
     http: {
-         port: parseInt(process.env.HTTP_PORT) || 3002,
+         port: parseInt(process.env.HTTP_PORT || '') || 3002,
         host:          process.env.HTTP_HOST || '0.0.0.0'
     },
     mongo: {
