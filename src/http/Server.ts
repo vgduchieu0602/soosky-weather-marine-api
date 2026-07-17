@@ -1,5 +1,7 @@
 import express, {NextFunction, Request, Response} from 'express'
 import ClientError from './ClientError'
+import GetTideChartUseCase from '../domain/use-cases/tide/getTideChartUseCase';
+import GetBuoyWeatherUseCase from '../domain/use-cases/buoy/GetBuoyWeatherUseCase';
 
 export {Server as default}
 
@@ -10,8 +12,21 @@ const HTTP_DEFAULT_HOST = "0.0.0.0";
 
 /*----------------------------------------------------------------------------------------*/
 
+type ServerUseCases = {
+    tide: {
+        getTideChart: GetTideChartUseCase;
+    }
+    buoy: {
+        getBuoyWeather: GetBuoyWeatherUseCase;
+    }
+}
+
+/*----------------------------------------------------------------------------------------*/
+
 class Server {
-    constructor () {
+    constructor (
+        private _useCases: ServerUseCases
+    ) {
         this._registerRouter();
         this._registerErrorHandler();
     }
@@ -21,6 +36,12 @@ class Server {
     private readonly routes = [
         ['GET', '/health',
             this._GET_health.bind(this),
+        ],
+        ['GET', '/api/v1/tides',
+            this._GET_tides.bind(this)
+        ],
+        ['GET', '/api/v1/buoys/:buoyId/weather',
+            this._GET_buoyWeather.bind(this)
         ]
     ]
 
@@ -65,6 +86,45 @@ class Server {
             data: {
                 uptime: process.uptime()
             }
+        })
+    }
+
+    private async _GET_tides (req: Request, res: Response) {
+        const stationId = req.query.stationId as string;
+        const date = req.query.date as string;
+        const daysRaw = req.query.days as string | undefined;
+
+        if (!stationId) throw new ClientError("Query param 'stationId' is required." );
+        if (!date) throw new ClientError("Query param 'date' is required (YYYYMMDD).");
+        if (!/^\d{8}$/.test(date)) throw new ClientError("'date' must be YYYYMMDD");
+
+        let days: number | undefined;
+
+        if (daysRaw !== undefined) {
+            days = parseInt(daysRaw);
+            if (isNaN(days) || days < 1) {
+                throw new ClientError("'days' must be a positive integer.");
+            }
+        }
+
+        const data = await this._useCases.tide.getTideChart.execute({stationId, date, days})
+
+        return res.json({
+            ok: true,
+            data
+        })
+    }
+
+    private async _GET_buoyWeather (req: Request, res: Response) {
+        const buoyId = req.params.buoyId as string;
+
+        if (!buoyId) throw new ClientError("Path param 'buoyId' is required.")
+
+        const data = await this._useCases.buoy.getBuoyWeather.execute({buoyId})
+
+        return res.json({
+            ok: true,
+            data
         })
     }
 

@@ -20,6 +20,6 @@ class ClientError extends Error {
 
 class UnauthorizedError extends ClientError {
     constructor (message = "Unauthorized.") {
-        super (message, 401, 'Unauthorized')
+        super (message, 401, 'UNAUTHORIZED')
     }
 }

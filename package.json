@@ -3,10 +3,10 @@
   "version": "1.0.0",
   "description": "",
   "type": "module",
-  "main": "app.js",
+  "main": "dist/app.js",
   "scripts": {
     "dev": "tsx watch src/app.ts",
-    "builld": "tsc --noEmit && esbuild src/app.ts --bundle --platform=node --format=esm --outfile=dist/app.js --packages=external",
+    "build": "tsc --noEmit && esbuild src/app.ts --bundle --platform=node --format=esm --outfile=dist/app.js --packages=external",
     "start": "node dist/app.js"
   },
   "engines": {"node": ">=22"},

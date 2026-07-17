@@ -37,7 +37,7 @@ const config = {
         apiKey: process.env.GEMINI_API_KEY,
         model: process.env.GEMINI_MODEL ?? 'gemini-3.1-flash'
     },
-    
+
     rateLimit: {
         windowMs: parseInt(process.env.RATE_LIMIT_WINDOW_MS || '60000'),
         globalMax: parseInt(process.env.RATE_LIMIT_GLOBAL_MAX || '120')
