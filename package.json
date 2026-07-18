@@ -9,13 +9,16 @@
     "build": "tsc --noEmit && esbuild src/app.ts --bundle --platform=node --format=esm --outfile=dist/app.js --packages=external",
     "start": "node dist/app.js"
   },
-  "engines": {"node": ">=22"},
+  "engines": {
+    "node": ">=22"
+  },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "dependencies": {
     "dotenv": "^17.4.2",
-    "express": "^5.2.1"
+    "express": "^5.2.1",
+    "mongoose": "^9.7.4"
   },
   "devDependencies": {
     "@types/express": "^5.0.6",
