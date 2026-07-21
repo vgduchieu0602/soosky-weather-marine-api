@@ -24,8 +24,10 @@ export default class WeatherBitCurrentRepository implements WeatherBitRepository
         return {
             lat: query.lat,
             lon: query.lon,
+            
             uvIndex: d.uv ?? null,
             humidity: d.rh ?? null,
+            
             updatedAt: new Date(d.ts * 1000).toISOString()
         }
     }

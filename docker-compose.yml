@@ -1,0 +1,12 @@
+services:
+  api:
+    build: .
+    image: soosky-weather-marine-api
+    container_name: soosky-weather-marine-api
+    # Bind localhost thôi: KHÔNG mở cổng ra ngoài internet, để nginx reverse-proxy.
+    ports:
+      - "127.0.0.1:3002:3002"
+    env_file:
+      - .env
+    # 24/7: tự khởi động lại khi crash hoặc khi VPS reboot (thay cho pm2).
+    restart: unless-stopped

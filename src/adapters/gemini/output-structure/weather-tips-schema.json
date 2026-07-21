@@ -1,0 +1,21 @@
+{
+  "type": "object",
+  "propertyOrdering": ["persona", "tips"],
+  "properties": {
+    "persona": {
+      "type": "string",
+      "enum": ["Traveler", "Water Sports", "Coastal Captain", "Offshore Fishing", "Other"]
+    },
+    "tips": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "maxLength": 100
+      },
+      "minItems": 2,
+      "maxItems": 4,
+      "description": "Short, plain-language, actionable smart tips, each max 100 characters including spaces, ordered from most to least important for that persona."
+    }
+  },
+  "required": ["persona", "tips"]
+}

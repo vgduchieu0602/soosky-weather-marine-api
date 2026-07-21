@@ -17,23 +17,21 @@ type NoaaResponse = {
 /* -------------------------------------------------------------------------- */
 
 class NoaaTidesRepository implements TideRepository {
-
-    /**
-     * Lấy tide chart (dự báo) từ product "predictions":
-     *  - interval "6"    -> đường cong mượt (6 phút/điểm)
-     *  - interval "hilo" -> mốc đỉnh/chân tương lai
-     */
     public async getTideChart(query: TideQuery): Promise<TideChart> {
-        const datum = query.datum || "MLLW";
         const days  = query.days  || 1;
 
         // NOAA nhận begin_date + end_date, không nhận 1 ngày lẻ -> tự đổi.
         const beginDate = query.date;
         const endDate   = this._addDays(query.date, days - 1); // days=1 -> end = begin
 
+        const datum = query.datum || "MLLW";
+        return this._fetchChart(query.stationId, beginDate, endDate, datum);
+    }
+
+    private async _fetchChart(stationId: string, beginDate: string, endDate: string, datum: string): Promise<TideChart> {
         const [curveRaw, hiloRaw] = await Promise.all([
-            this._fetch(query.stationId, beginDate, endDate, datum, "6"),
-            this._fetch(query.stationId, beginDate, endDate, datum, "hilo"),
+            this._fetch(stationId, beginDate, endDate, datum, "6"),
+            this._fetch(stationId, beginDate, endDate, datum, "hilo"),
         ]);
 
         const predictions: TidePoint[] = (curveRaw.predictions ?? []).map((p) => ({
@@ -47,7 +45,7 @@ class NoaaTidesRepository implements TideRepository {
             type:   p.type as "H" | "L",
         }));
 
-        return { stationId: query.stationId, predictions, highLow };
+        return { stationId, predictions, highLow };
     }
 
     /**
@@ -86,9 +84,6 @@ class NoaaTidesRepository implements TideRepository {
         return data;
     }
 
-    /**
-     * Cộng N ngày vào "YYYYMMDD", trả lại "YYYYMMDD".
-     */
     private _addDays(yyyymmdd: string, n: number): string {
         const y = Number(yyyymmdd.slice(0, 4));
         const m = Number(yyyymmdd.slice(4, 6));

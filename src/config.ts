@@ -6,7 +6,7 @@ export {config as default};
 
 class MissingEnvVarError extends Error {
     constructor(key: string) {
-        super(`Enviroment variable [${key}] is required.`)
+        super(`Environment variable [${key}] is required.`)
     }
 }
 
@@ -21,7 +21,7 @@ dotenv.config({
 
 const config = {
     http: {
-         port: parseInt(process.env.HTTP_PORT || '') || 3002,
+        port: parseInt(process.env.HTTP_PORT || '') || 3002,
         host:          process.env.HTTP_HOST || '0.0.0.0'
     },
     mongo: {
@@ -35,9 +35,8 @@ const config = {
     },
     gemini: {
         apiKey: process.env.GEMINI_API_KEY,
-        model: process.env.GEMINI_MODEL ?? 'gemini-3.1-flash'
+        model: process.env.GEMINI_MODEL ?? 'gemini-3.1-flash-lite'
     },
-
     rateLimit: {
         windowMs: parseInt(process.env.RATE_LIMIT_WINDOW_MS || '60000'),
         globalMax: parseInt(process.env.RATE_LIMIT_GLOBAL_MAX || '120')

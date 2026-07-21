@@ -1,3 +1,10 @@
+// ============================================================================
+// BuoyWeatherCacheModel.ts — khai báo "Schema" Mongoose = mô tả cho MongoDB
+// biết 1 document trong collection này có những field gì, kiểu gì. Đây là chỗ
+// DUY NHẤT trong project biết cú pháp Mongoose — domain/use-case hoàn toàn
+// không biết Mongo tồn tại.
+// ============================================================================
+
 import {Schema, model} from 'mongoose'
 
 export interface BuoyWeatherCacheDoc {
@@ -10,7 +17,8 @@ export interface BuoyWeatherCacheDoc {
     temperature: number | null;
     waterTemp: number | null;
     visibility: number | null;
-    updatedAt: string;
+    updatedAt: string;  //thời điểm NDBC ĐO (trả về client) — KHÁC cachedAt
+    cachedAt?: Date;    //thời điểm GHI cache (do timestamps sinh) — dùng so TTL
 }
 
 const schema = new Schema<BuoyWeatherCacheDoc> ({
@@ -56,6 +64,8 @@ const schema = new Schema<BuoyWeatherCacheDoc> ({
         type: String,
         required: true
     }
+}, {
+    timestamps: {createdAt: 'createdAt', updatedAt: 'cachedAt'}
 })
 
 export default model<BuoyWeatherCacheDoc>('BuoyWeatherCache', schema)

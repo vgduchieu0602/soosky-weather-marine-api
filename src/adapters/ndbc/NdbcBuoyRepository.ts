@@ -3,7 +3,6 @@ import {BuoyWeather, BuoyQuery} from "../../domain/entities/BuoyWeather";
 
 const NDBC_BASE = "https://www.ndbc.noaa.gov/data/realtime2";
 
-// Index cột sau khi tách dòng theo khoảng trắng
 const COL = {
     year: 0, month: 1, day: 2, hour: 3, min: 4,
     wdir: 5, // wind direction (deg)
@@ -24,22 +23,22 @@ export default class NdbcBuoyRepository implements BuoyWeatherRepository {
         return this._parse(query.buoyId, text)
     }
 
-    //Tải file text realtime2
     private async _fetchText (buoyId: string): Promise<string> {
         const res = await fetch(`${NDBC_BASE}/${buoyId}.txt`);
+
         if (!res.ok) {
             throw new Error(`NDBC request failed: HTTP ${res.status}`);
         }
+
         return res.text();
     }
 
-    //Parse text -> BuoyWeahter. Lấy dòng data đầu tiên (mới nhất)
     private _parse (buoyId: string, text: string): BuoyWeather {
         const lines = text
             .split("\n")
             .map((line) => line.trim())
             .filter((line) => line.length > 0 && !line.startsWith("#"));
-        
+
         if (lines.length === 0) {
             throw new Error(`NDBC station ${buoyId} has no data.`);
         }
@@ -61,7 +60,6 @@ export default class NdbcBuoyRepository implements BuoyWeatherRepository {
         }
     }
 
-    // "MM" hoặc thiếu = không đo được -> null
     private _num (token:string | undefined): number | null {
         if (token === undefined || token === "MM") {
             return null;
