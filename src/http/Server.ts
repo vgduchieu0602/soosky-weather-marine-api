@@ -10,6 +10,7 @@
 
 import express, {NextFunction, Request, Response} from 'express'
 import ClientError from './ClientError'
+import { formatResponseData } from './formatResponseData'
 import GetTideChartUseCase from '../domain/use-cases/tide/getTideChartUseCase';
 import GetBuoyWeatherDetailUseCase from '../domain/use-cases/buoy/GetBuoyWeatherDetailUseCase';
 import GetPointWeatherDetailUseCase from '../domain/use-cases/weather/GetPointWeatherDetailUseCase';
@@ -166,12 +167,13 @@ class Server {
 
     private async _GET_tides (req: Request, res: Response) {
         const stationId = req.query.stationId as string;
-        const date = req.query.date as string;
         const daysRaw = req.query.days as string | undefined;
 
         if (!stationId) throw new ClientError("Query param 'stationId' is required." );
-        if (!date) throw new ClientError("Query param 'date' is required (YYYYMMDD).");
-        if (!/^\d{8}$/.test(date)) throw new ClientError("'date' must be YYYYMMDD");
+
+        // date luôn = HÔM NAY (UTC), backend tự set — FE không cần truyền. Tide chart
+        // luôn hiển thị ngày hiện tại; dữ liệu trả về theo giờ để FE vẽ curve.
+        const date = new Date().toISOString().slice(0, 10).replace(/-/g, '');
 
         let days: number | undefined;
 
@@ -186,7 +188,7 @@ class Server {
 
         return res.json({
             ok: true,
-            data
+            data: formatResponseData(data)
         })
     }
 
@@ -209,7 +211,7 @@ class Server {
 
         return res.json({
             ok: true,
-            data
+            data: formatResponseData(data)
         })
     }
 
@@ -230,7 +232,7 @@ class Server {
 
         return res.json({
             ok: true,
-            data
+            data: formatResponseData(data)
         })
     }
 
@@ -251,12 +253,23 @@ class Server {
         return res.send(tile.buffer)
     }
 
-    private async _GET_radar (_req: Request, res: Response) {
-        const data = await this._useCases.radar.getRadar.execute()
+    private async _GET_radar (req: Request, res: Response) {
+        const latRaw = req.query.lat as string;
+        const lonRaw = req.query.lon as string;
+
+        if (!latRaw || !lonRaw) throw new ClientError("Query params 'lat' and 'lon' are required.")
+
+        const lat = parseFloat(latRaw);
+        const lon = parseFloat(lonRaw);
+
+        if (isNaN(lat) || lat < -90 || lat > 90) throw new ClientError("'lat' must be between -90 and 90.")
+        if (isNaN(lon) || lon < -180 || lon > 180) throw new ClientError("'lon' must be between -180 and 180.")
+
+        const data = await this._useCases.radar.getRadar.execute({lat, lon})
 
         return res.json({
             ok: true,
-            data
+            data: formatResponseData(data)
         })
     }
 
@@ -276,7 +289,7 @@ class Server {
 
         return res.json({
             ok: true,
-            data
+            data: formatResponseData(data)
         })
     }
 
@@ -302,7 +315,7 @@ class Server {
 
         return res.json({
             ok: true,
-            data
+            data: formatResponseData(data)
         })
     }
 

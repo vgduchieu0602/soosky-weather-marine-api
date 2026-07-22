@@ -1,6 +1,6 @@
 import config from '../../config'
-import AlertRepository from "../../domain/repositories/IAlertRepository";
-import { WeatherAlerts, AlertQuery } from "../../domain/entities/WeatherAlert";
+import AlertRepository, { AlertQuery } from "../../domain/repositories/IAlertRepository";
+import { WeatherAlerts } from "../../domain/entities/WeatherAlert";
 
 const WEATHERBIT_ALERTS_BASE = 'https://api.weatherbit.io/v2.0/alerts';
 

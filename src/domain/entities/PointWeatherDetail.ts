@@ -8,12 +8,6 @@ import {OwmForecast} from './OwmForecast';
 // WeatherBit (uv/humidity) + OwmForecast.
 // ============================================================================
 
-export type PointWeatherDetailQuery = {
-    lat: number;
-    lon: number;
-    tideStationId?: string;
-}
-
 export interface PointWeatherDetail {
     lat: number;
     lon: number;

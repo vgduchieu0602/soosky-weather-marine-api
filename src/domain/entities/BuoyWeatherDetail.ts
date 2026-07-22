@@ -7,13 +7,6 @@ import {OwmForecast} from './OwmForecast';
 // BuoyWeather + TideChart + WeatherBit + OwmForecast lại thành 1 object.
 // ============================================================================
 
-export type BuoyWeatherDetailQuery = {
-    buoyId: string;
-    lat: number;
-    lon: number;
-    tideStationId?: string;
-}
-
 export interface BuoyWeatherDetail {
     buoyId: string;
 

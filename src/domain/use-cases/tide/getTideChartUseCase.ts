@@ -1,5 +1,5 @@
-import TideRepository from "../../repositories/ITideRepository";
-import {TideChart, TideQuery} from '../../entities/TideChart'
+import TideRepository, {TideQuery} from "../../repositories/ITideRepository";
+import {TideChart} from '../../entities/TideChart'
 
 export default class GetTideChartUseCase {
     constructor (private _tideRepo: TideRepository) {}

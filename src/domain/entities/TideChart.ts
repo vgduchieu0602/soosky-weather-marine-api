@@ -16,15 +16,6 @@ export interface TideExtreme {
 
 /*---------------------------------------------------------------------------------------------*/
 
-export type TideQuery = {
-    stationId: string;
-    date: string; //"YYYYMMDD" — bắt buộc đúng format này (Server.ts có validate bằng regex)
-    days?: number;  //mặc định 1 — dấu `?` nghĩa là field optional, có thể không truyền
-    datum?: string; //mặc định "MLLW" (mực nước chuẩn dùng để tính độ cao)
-}
-
-/*---------------------------------------------------------------------------------------------*/
-
 export interface TideChart {
     stationId: string;
 

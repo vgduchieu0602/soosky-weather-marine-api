@@ -5,11 +5,6 @@
 // đo 2 đại lượng biển này (chỉ trạm buoy NDBC mới có).
 // ============================================================================
 
-export type PointWeatherQuery = {
-    lat: number;
-    lon: number;
-}
-
 export interface PointWeather {
     lat: number;
     lon: number;

@@ -1,6 +1,6 @@
 import config from '../../config';
-import WeatherBitRepository from '../../domain/repositories/IWeatherBitRepository';
-import { WeatherBitCurrent, WeatherBitQuery } from '../../domain/entities/WeatherBitCurrent';
+import WeatherBitRepository, { WeatherBitQuery } from '../../domain/repositories/IWeatherBitRepository';
+import { WeatherBitCurrent } from '../../domain/entities/WeatherBitCurrent';
 
 const WEATHERBIT_BASE = 'https://api.weatherbit.io/v2.0/current';
 

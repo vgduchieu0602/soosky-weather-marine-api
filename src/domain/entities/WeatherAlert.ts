@@ -1,8 +1,3 @@
-export type AlertQuery = {
-    lat: number;
-    lon: number;
-}
-
 export interface WeatherAlert {
     title: string;
     severity: string | null;

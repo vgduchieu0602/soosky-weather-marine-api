@@ -34,11 +34,6 @@ export interface WeatherTipsWeather {
     humidity: number | null;
 }
 
-export type WeatherTipsQuery = {
-    persona: Persona;
-    weather: WeatherTipsWeather;
-}
-
 export interface WeatherTips {
     persona: Persona;
     tips: string[];   //2-4 tip, mỗi tip <=100 ký tự

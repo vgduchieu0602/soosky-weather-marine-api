@@ -1,6 +1,6 @@
 import config from '../../config'
-import MapTileRepository from '../../domain/repositories/IMapTileRepository';
-import { MapTile, MapTileQuery, MapLayer } from '../../domain/entities/MapTile';
+import MapTileRepository, { MapTileQuery } from '../../domain/repositories/IMapTileRepository';
+import { MapTile, MapLayer } from '../../domain/entities/MapTile';
 
 const OWM_TILE_BASE = 'https://tile.openweathermap.org/map';
 
