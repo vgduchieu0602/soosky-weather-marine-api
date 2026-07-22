@@ -1,13 +1,13 @@
 // ============================================================================
-// CachedTideRepository.ts — bọc source repo (NOAA) bằng cache-aside. Orchestration
-// (còn tươi không / có refetch không) ở ĐÂY (use-case layer), không ở adapter Mongo.
-// Implement ITideRepository nên use-case tổng hợp (buoy/point detail) vẫn dùng
-// trong suốt, không cần biết có cache.
+// CachedTideRepository.ts — repository decorator (Interface Adapters). Bọc source
+// (NOAA) + cache store bằng cache-aside. Implement ITideRepository nên use-case
+// dùng trong suốt, không biết có cache. KHÔNG phải use-case: chỉ là hạ tầng cache.
 // ============================================================================
 
-import TideRepository, { TideQuery } from '../../repositories/ITideRepository'
-import { TideChart } from '../../entities/TideChart'
-import { CacheStore, cacheAside } from './cacheAside'
+import TideRepository, { TideQuery } from '../../domain/repositories/ITideRepository'
+import { TideChart } from '../../domain/entities/TideChart'
+import { CacheStore } from './ICacheStore'
+import { cacheAside } from './cacheAside'
 
 export default class CachedTideRepository implements TideRepository {
     constructor (

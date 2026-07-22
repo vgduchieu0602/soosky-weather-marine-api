@@ -1,6 +1,7 @@
-import BuoyWeatherRepository, { BuoyQuery } from '../../repositories/IBuoyWeatherRepository'
-import { BuoyWeather } from '../../entities/BuoyWeather'
-import { CacheStore, cacheAside } from './cacheAside'
+import BuoyWeatherRepository, { BuoyQuery } from '../../domain/repositories/IBuoyWeatherRepository'
+import { BuoyWeather } from '../../domain/entities/BuoyWeather'
+import { CacheStore } from './ICacheStore'
+import { cacheAside } from './cacheAside'
 
 export default class CachedBuoyWeatherRepository implements BuoyWeatherRepository {
     constructor (

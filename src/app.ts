@@ -32,14 +32,14 @@ import MongoPointWeatherCache from './adapters/mongo/stores/MongoPointWeatherCac
 import MongoRadarCache from './adapters/mongo/stores/MongoRadarCache';
 import MongoAlertCache from './adapters/mongo/stores/MongoAlertCache';
 
-// --- Caching wrappers (orchestration cache-aside, tầng use-case) ---
-import CachedTideRepository from './domain/use-cases/caching/CachedTideRepository';
-import CachedBuoyWeatherRepository from './domain/use-cases/caching/CachedBuoyWeatherRepository';
-import CachedWeatherBitRepository from './domain/use-cases/caching/CachedWeatherBitRepository';
-import CachedOwmForecastRepository from './domain/use-cases/caching/CachedOwmForecastRepository';
-import CachedPointWeatherRepository from './domain/use-cases/caching/CachedPointWeatherRepository';
-import CachedRadarRepository from './domain/use-cases/caching/CachedRadarRepository';
-import CachedAlertRepository from './domain/use-cases/caching/CachedAlertRepository';
+// --- Cache decorators (Interface Adapters — bọc source + store bằng cache-aside) ---
+import CachedTideRepository from './adapters/cache/CachedTideRepository';
+import CachedBuoyWeatherRepository from './adapters/cache/CachedBuoyWeatherRepository';
+import CachedWeatherBitRepository from './adapters/cache/CachedWeatherBitRepository';
+import CachedOwmForecastRepository from './adapters/cache/CachedOwmForecastRepository';
+import CachedPointWeatherRepository from './adapters/cache/CachedPointWeatherRepository';
+import CachedRadarRepository from './adapters/cache/CachedRadarRepository';
+import CachedAlertRepository from './adapters/cache/CachedAlertRepository';
 
 import GetWeatherTipsUseCase from './domain/use-cases/tips/GetWeatherTipsUseCase';
 import GeminiWeatherAdvisor from './adapters/gemini/GeminiWeatherAdvisor';

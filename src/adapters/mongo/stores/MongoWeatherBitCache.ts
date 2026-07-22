@@ -1,4 +1,4 @@
-import { WeatherBitCacheStore, WeatherBitCacheEntry } from '../../../domain/use-cases/caching/IWeatherBitCacheStore'
+import { WeatherBitCacheStore, WeatherBitCacheEntry } from '../../cache/IWeatherBitCacheStore'
 import { WeatherBitQuery } from '../../../domain/repositories/IWeatherBitRepository'
 import WeatherBitCacheModel from '../models/WeatherBitCacheModel'
 

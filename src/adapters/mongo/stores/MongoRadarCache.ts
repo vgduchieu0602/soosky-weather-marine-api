@@ -1,4 +1,4 @@
-import { CacheStore, CacheHit } from '../../../domain/use-cases/caching/cacheAside'
+import { CacheStore, CacheHit } from '../../cache/ICacheStore'
 import { RadarInfo } from '../../../domain/entities/RadarInfo'
 import RadarCacheModel from '../models/RadarCacheModel'
 

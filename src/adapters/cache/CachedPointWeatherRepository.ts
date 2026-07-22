@@ -1,6 +1,7 @@
-import PointWeatherRepository, { PointWeatherQuery } from '../../repositories/IPointWeatherRepository'
-import { PointWeather } from '../../entities/PointWeather'
-import { CacheStore, cacheAside } from './cacheAside'
+import PointWeatherRepository, { PointWeatherQuery } from '../../domain/repositories/IPointWeatherRepository'
+import { PointWeather } from '../../domain/entities/PointWeather'
+import { CacheStore } from './ICacheStore'
+import { cacheAside } from './cacheAside'
 
 export default class CachedPointWeatherRepository implements PointWeatherRepository {
     constructor (

@@ -1,6 +1,7 @@
-import RadarRepository from '../../repositories/IRadarRepository'
-import { RadarInfo } from '../../entities/RadarInfo'
-import { CacheStore, cacheAside } from './cacheAside'
+import RadarRepository from '../../domain/repositories/IRadarRepository'
+import { RadarInfo } from '../../domain/entities/RadarInfo'
+import { CacheStore } from './ICacheStore'
+import { cacheAside } from './cacheAside'
 
 export default class CachedRadarRepository implements RadarRepository {
     constructor (

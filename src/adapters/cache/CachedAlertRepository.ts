@@ -1,6 +1,7 @@
-import AlertRepository, { AlertQuery } from '../../repositories/IAlertRepository'
-import { WeatherAlerts } from '../../entities/WeatherAlert'
-import { CacheStore, cacheAside } from './cacheAside'
+import AlertRepository, { AlertQuery } from '../../domain/repositories/IAlertRepository'
+import { WeatherAlerts } from '../../domain/entities/WeatherAlert'
+import { CacheStore } from './ICacheStore'
+import { cacheAside } from './cacheAside'
 
 export default class CachedAlertRepository implements AlertRepository {
     constructor (
