@@ -1,4 +1,4 @@
-import { CacheStore, CacheHit } from '../../../domain/use-cases/caching/cacheAside'
+import { CacheStore, CacheHit } from '../../cache/ICacheStore'
 import { BuoyWeather } from '../../../domain/entities/BuoyWeather'
 import { BuoyQuery } from '../../../domain/repositories/IBuoyWeatherRepository'
 import BuoyWeatherCacheModel from '../models/BuoyWeatherCacheModel'

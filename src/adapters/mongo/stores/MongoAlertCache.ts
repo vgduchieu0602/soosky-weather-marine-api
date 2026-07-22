@@ -1,4 +1,4 @@
-import { CacheStore, CacheHit } from '../../../domain/use-cases/caching/cacheAside'
+import { CacheStore, CacheHit } from '../../cache/ICacheStore'
 import { WeatherAlerts } from '../../../domain/entities/WeatherAlert'
 import { AlertQuery } from '../../../domain/repositories/IAlertRepository'
 import WeatherAlertCacheModel from '../models/WeatherAlertCacheModel'

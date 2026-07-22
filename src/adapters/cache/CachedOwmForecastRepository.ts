@@ -1,6 +1,7 @@
-import OwmForecastRepository, { OwmForecastQuery } from '../../repositories/IOwmForecastRepository'
-import { OwmForecast } from '../../entities/OwmForecast'
-import { CacheStore, cacheAside } from './cacheAside'
+import OwmForecastRepository, { OwmForecastQuery } from '../../domain/repositories/IOwmForecastRepository'
+import { OwmForecast } from '../../domain/entities/OwmForecast'
+import { CacheStore } from './ICacheStore'
+import { cacheAside } from './cacheAside'
 
 export default class CachedOwmForecastRepository implements OwmForecastRepository {
     constructor (

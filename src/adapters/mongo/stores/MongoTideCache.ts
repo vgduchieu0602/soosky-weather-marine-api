@@ -4,7 +4,7 @@
 // chỗ duy nhất biết cú pháp Mongoose cho collection này.
 // ============================================================================
 
-import { CacheStore, CacheHit } from '../../../domain/use-cases/caching/cacheAside'
+import { CacheStore, CacheHit } from '../../cache/ICacheStore'
 import { TideChart } from '../../../domain/entities/TideChart'
 import { TideQuery } from '../../../domain/repositories/ITideRepository'
 import TideChartCacheModel from '../models/TideChartCacheModel'

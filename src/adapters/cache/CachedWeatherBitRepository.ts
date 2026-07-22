@@ -1,12 +1,11 @@
 // ============================================================================
-// CachedWeatherBitRepository.ts — cache-aside BESPOKE cho WeatherBit: 2 field
-// lệch nhịp (humidity TTL ngắn, uvIndex TTL dài), mỗi field timestamp riêng.
-// Logic merge/partial-write này TRƯỚC nằm trong MongoWeatherBitRepository (adapter)
-// -> đã move lên use-case; store Mongo giờ chỉ read/write thuần.
+// CachedWeatherBitRepository.ts — decorator BESPOKE cho WeatherBit: 2 field lệch
+// nhịp (humidity TTL ngắn, uvIndex TTL dài), mỗi field timestamp riêng. Tầng
+// Interface Adapters. Logic merge/partial-write TRƯỚC nằm trong Mongo repo.
 // ============================================================================
 
-import WeatherBitRepository, { WeatherBitQuery } from '../../repositories/IWeatherBitRepository'
-import { WeatherBitCurrent } from '../../entities/WeatherBitCurrent'
+import WeatherBitRepository, { WeatherBitQuery } from '../../domain/repositories/IWeatherBitRepository'
+import { WeatherBitCurrent } from '../../domain/entities/WeatherBitCurrent'
 import { WeatherBitCacheStore, WeatherBitCacheEntry } from './IWeatherBitCacheStore'
 import { isFresh } from './cacheAside'
 
