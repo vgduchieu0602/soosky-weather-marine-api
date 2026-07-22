@@ -7,8 +7,8 @@
 // ============================================================================
 
 import {GoogleGenAI, ThinkingLevel} from '@google/genai'
-import WeatherAdvisorRepository from '../../domain/repositories/IWeatherAdvisorRepository'
-import {WeatherTips, WeatherTipsQuery} from '../../domain/entities/WeatherTips'
+import WeatherAdvisorRepository, {WeatherTipsQuery} from '../../domain/repositories/IWeatherAdvisorRepository'
+import {WeatherTips} from '../../domain/entities/WeatherTips'
 import {WEATHER_TIPS_INSTRUCTION} from './instruction/weatherTips'
 import WEATHER_TIPS_SCHEMA from './output-structure/weather-tips-schema.json' with {type: 'json'}
 

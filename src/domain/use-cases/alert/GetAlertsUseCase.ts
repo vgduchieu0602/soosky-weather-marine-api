@@ -1,5 +1,5 @@
-import AlertRepository from "../../repositories/IAlertRepository";
-import { WeatherAlerts, AlertQuery } from "../../entities/WeatherAlert";
+import AlertRepository, { AlertQuery } from "../../repositories/IAlertRepository";
+import { WeatherAlerts } from "../../entities/WeatherAlert";
 
 export default class GetAlertsUseCase {
     constructor(private _alertRepo: AlertRepository) {}

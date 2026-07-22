@@ -6,8 +6,8 @@
 // — đây là lý do trước đây bỏ in-memory; giờ thêm cap nên an toàn.
 // ============================================================================
 
-import MapTileRepository from '../../domain/repositories/IMapTileRepository'
-import {MapTile, MapTileQuery} from '../../domain/entities/MapTile'
+import MapTileRepository, {MapTileQuery} from '../../domain/repositories/IMapTileRepository'
+import {MapTile} from '../../domain/entities/MapTile'
 
 const TTL_MS = 15 * 60 * 1000;    // ngắn — đủ cho 1 phiên xem bản đồ
 const MAX_ENTRIES = 500;          // ~500 tile x vài chục KB = vài chục MB trần

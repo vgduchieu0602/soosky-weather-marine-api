@@ -2,11 +2,6 @@
 // Dữ liệu forecast (5 ngày + theo giờ) từ OWM.
 // ============================================================================
 
-export type OwmForecastQuery = {
-    lat: number;
-    lon: number;
-}
-
 export interface HourlyForecastPoint {
     time: string;
     temperature: number | null;

@@ -2,11 +2,6 @@
 // Dữ liệu uvIndex + humidity lấy từ WeatherBit (theo toạ độ, KHÔNG theo trạm buoy).
 // ==================================================================================
 
-export type WeatherBitQuery = {
-    lat:number;
-    lon: number
-}
-
 export interface WeatherBitCurrent {
     lat: number;
     lon: number;

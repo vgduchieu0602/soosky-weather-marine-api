@@ -2,10 +2,6 @@
 // Dữ liệu thời tiết đo tại 1 trạm phao NDBC.
 // ============================================================================
 
-export type BuoyQuery = {
-    buoyId: string; //NDBC station ID, ví dụ "46053"
-}
-
 export interface BuoyWeather {
     buoyId: string;
 

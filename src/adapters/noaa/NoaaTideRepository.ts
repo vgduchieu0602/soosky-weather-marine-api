@@ -1,5 +1,5 @@
-import TideRepository from "../../domain/repositories/ITideRepository";
-import { TideChart, TidePoint, TideExtreme, TideQuery } from "../../domain/entities/TideChart";
+import TideRepository, { TideQuery } from "../../domain/repositories/ITideRepository";
+import { TideChart, TidePoint, TideExtreme } from "../../domain/entities/TideChart";
 
 export { NoaaTidesRepository as default };
 
@@ -29,8 +29,10 @@ class NoaaTidesRepository implements TideRepository {
     }
 
     private async _fetchChart(stationId: string, beginDate: string, endDate: string, datum: string): Promise<TideChart> {
+        // interval "h" = 1 điểm/giờ (đủ dày để FE vẽ đường cong tide theo giờ,
+        // nhẹ hơn "6" = 6 phút/điểm). "hilo" = các mốc đỉnh/chân để mark H/L.
         const [curveRaw, hiloRaw] = await Promise.all([
-            this._fetch(stationId, beginDate, endDate, datum, "6"),
+            this._fetch(stationId, beginDate, endDate, datum, "h"),
             this._fetch(stationId, beginDate, endDate, datum, "hilo"),
         ]);
 

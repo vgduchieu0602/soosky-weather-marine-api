@@ -4,9 +4,16 @@ import TideRepository from "../../repositories/ITideRepository";
 import WeatherBitRepository from "../../repositories/IWeatherBitRepository";
 import OwmForecastRepository from "../../repositories/IOwmForecastRepository";
 import StationLocator from "../../repositories/IStationLocator";
-import { PointWeatherDetail, PointWeatherDetailQuery } from "../../entities/PointWeatherDetail";
+import { PointWeatherDetail } from "../../entities/PointWeatherDetail";
 import { resilientSource } from "../resilientSource";
 import { resolveTide } from "../resolveTide";
+
+// Query = input do client truyền vào (không phải data lưu trữ) -> khai cạnh use-case.
+export type PointWeatherDetailQuery = {
+    lat: number;
+    lon: number;
+    tideStationId?: string;
+}
 
 // ============================================================================
 // GetPointWeatherDetailUseCase.ts — thời tiết tại 1 điểm bất kỳ. Current từ OWM

@@ -17,7 +17,20 @@ You will receive:
    - \`Offshore Fishing\` — goes further out, longer trips; cares about wave height, wind trend, pressure changes (storm risk), visibility.
    - \`Other\` — general-purpose advice, no strong persona bias.
 
-2. **Weather Data** — a JSON object with the weather fields.
+2. **Weather Data** — a JSON object with these fields:
+   - \`temperature\` — number, °C.
+   - \`windSpeed\` — number, knots or mph (specify unit if known).
+   - \`windDirection\` — number (degrees 0-360) or compass string.
+   - \`gust\` — number, wind gust speed.
+   - \`waveHeight\` — number | null, meters or feet (nullable).
+   - \`waterTemp\` — number | null, °C (nullable).
+   - \`atmospherePressure\` — number, hPa or inHg.
+   - \`updatedAt\` — string, ISO 8601 timestamp.
+   - \`visibility\` — number | null, km or miles (nullable).
+   - \`tide\` — string | number, tide height/state.
+   - \`uvIndex\` — number.
+   - \`cloudCover\` — number, %.
+   - \`humidity\` — number | null, % (nullable).
 
 ## Task
 

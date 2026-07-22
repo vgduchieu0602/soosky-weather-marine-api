@@ -6,17 +6,11 @@ import NdbcBuoyRepository from './adapters/ndbc/NdbcBuoyRepository';
 import GetBuoyWeatherDetailUseCase from './domain/use-cases/buoy/GetBuoyWeatherDetailUseCase';
 
 import connectMongo from './adapters/mongo/connectMongo';
-import MongoBuoyWeatherRepository from './adapters/mongo/MongoBuoyWeatherRepository';
 import WeatherBitCurrentRepository from './adapters/weatherbit/WeatherBitCurrentRepository';
 import OwmForecastRepositoryImpl from './adapters/owm/OwmForecastRepository';
 
-import MongoTideRepository from './adapters/mongo/MongoTideRepository';
-import MongoWeatherBitRepository from './adapters/mongo/MongoWeatherBitRepository';
-import MongoOwmForecastRepository from './adapters/mongo/MongoOwmForecastRepository';
-
 import GetPointWeatherDetailUseCase from './domain/use-cases/weather/GetPointWeatherDetailUseCase';
 import OwmCurrentRepository from './adapters/owm/OwmCurrentRepository';
-import MongoPointWeatherRepository from './adapters/mongo/MongoPointWeatherRepository';
 
 import GetMapTileUseCase from './domain/use-cases/map/GetMapTileUseCase';
 import OwmMapTileRepository from './adapters/owm/OwmMapTileRepository';
@@ -25,11 +19,27 @@ import GlobalRateLimiter from './http/GlobalRateLimiter';
 
 import GetRadarUseCase from './domain/use-cases/radar/GetRadarUseCase';
 import RainviewerRadarRepository from './adapters/rainviewer/RainviewerRadarRepository';
-import MongoRadarRepository from './adapters/mongo/MongoRadarRepository';
 
 import GetAlertsUseCase from './domain/use-cases/alert/GetAlertsUseCase';
 import WeatherBitAlertRepository from './adapters/weatherbit/WeatherBitAlertRepository';
-import MongoAlertRepository from './adapters/mongo/MongoAlertRepository';
+
+// --- Cache stores (Mongo, thuần read/write) ---
+import MongoTideCache from './adapters/mongo/stores/MongoTideCache';
+import MongoBuoyWeatherCache from './adapters/mongo/stores/MongoBuoyWeatherCache';
+import MongoWeatherBitCache from './adapters/mongo/stores/MongoWeatherBitCache';
+import MongoOwmForecastCache from './adapters/mongo/stores/MongoOwmForecastCache';
+import MongoPointWeatherCache from './adapters/mongo/stores/MongoPointWeatherCache';
+import MongoRadarCache from './adapters/mongo/stores/MongoRadarCache';
+import MongoAlertCache from './adapters/mongo/stores/MongoAlertCache';
+
+// --- Caching wrappers (orchestration cache-aside, tầng use-case) ---
+import CachedTideRepository from './domain/use-cases/caching/CachedTideRepository';
+import CachedBuoyWeatherRepository from './domain/use-cases/caching/CachedBuoyWeatherRepository';
+import CachedWeatherBitRepository from './domain/use-cases/caching/CachedWeatherBitRepository';
+import CachedOwmForecastRepository from './domain/use-cases/caching/CachedOwmForecastRepository';
+import CachedPointWeatherRepository from './domain/use-cases/caching/CachedPointWeatherRepository';
+import CachedRadarRepository from './domain/use-cases/caching/CachedRadarRepository';
+import CachedAlertRepository from './domain/use-cases/caching/CachedAlertRepository';
 
 import GetWeatherTipsUseCase from './domain/use-cases/tips/GetWeatherTipsUseCase';
 import GeminiWeatherAdvisor from './adapters/gemini/GeminiWeatherAdvisor';
@@ -53,31 +63,27 @@ const ONE_DAY = 24 * ONE_HOUR;
 
 /*----------------------------------------------------------------------------------*/
 
-// --- Adapter ---
+// --- Adapter (source thật, gọi thẳng API ngoài) ---
 const tideRepo = new NoaaTidesRepository()
 const buoyRepo = new NdbcBuoyRepository()
 
-const mongoBuoyRepo = new MongoBuoyWeatherRepository(buoyRepo, THIRTY_MINUTES)
-
-// Tide/OWM/WeatherBit dùng CHUNG pattern cache-aside qua Mongo như buoy — cache
-// share giữa mọi user + mọi instance, sống sót qua restart (in-memory cũ thì
-// không). TTL giữ theo cadence riêng từng nguồn, KHÔNG ép về 30 phút:
-//  - tide 1 ngày: prediction cho 1 ngày cụ thể không đổi trong ngày đó.
-//  - OWM 1 ngày: forecast chỉ cần refresh 1 lần/ngày theo yêu cầu.
+// Cache-aside: source + Mongo cache store + TTL, ghép bằng caching wrapper (use-case).
+// Store = persistence thuần (read/write); wrapper = orchestration (TTL/refetch).
+// Cache share giữa mọi user + instance, sống sót restart. TTL theo cadence từng nguồn:
+//  - buoy/point 30 phút: data đo thực tế, đổi liên tục.
+//  - tide/OWM forecast 1 ngày: data 1 ngày cụ thể không đổi trong ngày.
 //  - WeatherBit: humidity 1h, uvIndex 3h (2 field lệch nhịp, 2 timestamp riêng).
-const cachedTideRepo = new MongoTideRepository(tideRepo, ONE_DAY)
-const weatherBitRepo = new MongoWeatherBitRepository(new WeatherBitCurrentRepository(), ONE_HOUR, THREE_HOURS)
-const forecastRepo = new MongoOwmForecastRepository(new OwmForecastRepositoryImpl(), ONE_DAY)
-
-// Current weather theo điểm bất kỳ (OWM current), cache-aside Mongo 30 phút —
-// cùng cadence buoy (data đo thực tế, đổi liên tục).
-const pointWeatherRepo = new MongoPointWeatherRepository(new OwmCurrentRepository(), THIRTY_MINUTES)
+const mongoBuoyRepo = new CachedBuoyWeatherRepository(buoyRepo, new MongoBuoyWeatherCache(), THIRTY_MINUTES)
+const cachedTideRepo = new CachedTideRepository(tideRepo, new MongoTideCache(), ONE_DAY)
+const weatherBitRepo = new CachedWeatherBitRepository(new WeatherBitCurrentRepository(), new MongoWeatherBitCache(), ONE_HOUR, THREE_HOURS)
+const forecastRepo = new CachedOwmForecastRepository(new OwmForecastRepositoryImpl(), new MongoOwmForecastCache(), ONE_DAY)
+const pointWeatherRepo = new CachedPointWeatherRepository(new OwmCurrentRepository(), new MongoPointWeatherCache(), THIRTY_MINUTES)
 
 // Map tile: cache TTL ngắn TRONG RAM (không Mongo — ảnh nặng, không cần bền vững),
 // có cap LRU để RAM không phình. Giảm gọi OWM khi pan/zoom xin lại cùng tile.
 const mapTileRepo = new InMemoryMapTileRepository(new OwmMapTileRepository())
-const radarRepo = new MongoRadarRepository(new RainviewerRadarRepository(), TEN_MINUTES)
-const alertRepo = new MongoAlertRepository(new WeatherBitAlertRepository(), THIRTY_MINUTES)
+const radarRepo = new CachedRadarRepository(new RainviewerRadarRepository(), new MongoRadarCache(), TEN_MINUTES)
+const alertRepo = new CachedAlertRepository(new WeatherBitAlertRepository(), new MongoAlertCache(), THIRTY_MINUTES)
 
 // Smart Weather Tips (Gemini). KHÔNG cache (mỗi request persona/weather khác nhau,
 // output ngắn) — gọi thẳng Gemini. Cần GEMINI_API_KEY trong .env.

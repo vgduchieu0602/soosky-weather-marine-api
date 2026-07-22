@@ -1,6 +1,6 @@
 import config from '../../config'
-import OwmForecastRepository from '../../domain/repositories/IOwmForecastRepository';
-import {OwmForecast, OwmForecastQuery, HourlyForecastPoint, DailyForecastPoint} from '../../domain/entities/OwmForecast'
+import OwmForecastRepository, {OwmForecastQuery} from '../../domain/repositories/IOwmForecastRepository';
+import {OwmForecast, HourlyForecastPoint, DailyForecastPoint} from '../../domain/entities/OwmForecast'
 
 // Endpoint FREE: 5-day / 3-hour forecast (nằm trong gói free OWM). Thay cho 2
 // endpoint trả phí cũ (pro hourly + forecast/daily 16 ngày) từng gây 401. Trả 1

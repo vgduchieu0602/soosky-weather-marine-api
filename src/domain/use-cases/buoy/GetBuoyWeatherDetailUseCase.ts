@@ -3,9 +3,17 @@ import TideRepository from "../../repositories/ITideRepository";
 import WeatherBitRepository from "../../repositories/IWeatherBitRepository";
 import OwmForecastRepository from "../../repositories/IOwmForecastRepository";
 import StationLocator from "../../repositories/IStationLocator";
-import { BuoyWeatherDetail, BuoyWeatherDetailQuery } from "../../entities/BuoyWeatherDetail";
+import { BuoyWeatherDetail } from "../../entities/BuoyWeatherDetail";
 import { resilientSource } from "../resilientSource";
 import { resolveTide } from "../resolveTide";
+
+// Query = input do client truyền vào (không phải data lưu trữ) -> khai cạnh use-case.
+export type BuoyWeatherDetailQuery = {
+    buoyId: string;
+    lat: number;
+    lon: number;
+    tideStationId?: string;
+}
 
 export default class GetBuoyWeatherDetailUseCase {
     constructor (

@@ -1,6 +1,6 @@
 import config from '../../config'
-import PointWeatherRepository from '../../domain/repositories/IPointWeatherRepository'
-import {PointWeather, PointWeatherQuery} from '../../domain/entities/PointWeather'
+import PointWeatherRepository, {PointWeatherQuery} from '../../domain/repositories/IPointWeatherRepository'
+import {PointWeather} from '../../domain/entities/PointWeather'
 
 const OWM_CURRENT_BASE = 'https://api.openweathermap.org/data/2.5/weather';
 

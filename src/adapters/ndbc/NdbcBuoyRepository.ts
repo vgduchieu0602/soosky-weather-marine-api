@@ -1,5 +1,5 @@
-import BuoyWeatherRepository from "../../domain/repositories/IBuoyWeatherRepository";
-import {BuoyWeather, BuoyQuery} from "../../domain/entities/BuoyWeather";
+import BuoyWeatherRepository, {BuoyQuery} from "../../domain/repositories/IBuoyWeatherRepository";
+import {BuoyWeather} from "../../domain/entities/BuoyWeather";
 
 const NDBC_BASE = "https://www.ndbc.noaa.gov/data/realtime2";
 
