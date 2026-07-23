@@ -38,6 +38,7 @@ const config = {
         model: process.env.GEMINI_MODEL ?? 'gemini-3.1-flash-lite'
     },
     rateLimit: {
+        enabled: process.env.RATE_LIMIT_ENABLED !== 'false', // đặt 'false' để tắt (test); mặc định bật
         windowMs: parseInt(process.env.RATE_LIMIT_WINDOW_MS || '60000'),
         globalMax: parseInt(process.env.RATE_LIMIT_GLOBAL_MAX || '120')
     }

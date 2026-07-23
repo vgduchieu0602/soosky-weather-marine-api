@@ -99,7 +99,7 @@ const stationLocator = new StationLocatorImpl()
 // Giới hạn TỔNG số request (mọi client cộng lại) trong 1 cửa sổ — xem
 // GlobalRateLimiter.ts. Dùng đúng config đã khai báo sẵn từ đầu project
 // (RATE_LIMIT_WINDOW_MS/RATE_LIMIT_GLOBAL_MAX), trước đây chưa có middleware nào áp dụng.
-const rateLimiter = new GlobalRateLimiter(config.rateLimit.windowMs, config.rateLimit.globalMax)
+const rateLimiter = new GlobalRateLimiter(config.rateLimit.windowMs, config.rateLimit.globalMax, config.rateLimit.enabled)
 
 // --- Use Cases ---
 const useCases = {
