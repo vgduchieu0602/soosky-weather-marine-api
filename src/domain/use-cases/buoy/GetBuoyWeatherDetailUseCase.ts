@@ -41,6 +41,7 @@ export default class GetBuoyWeatherDetailUseCase {
 
         return {
             buoyId: query.buoyId,
+            location: { lat: query.lat, lon: query.lon },
             temperature: buoy?.temperature ?? null,
             windSpeed: buoy?.windSpeed ?? null,
             windDirection: buoy?.windDirection ?? null,
