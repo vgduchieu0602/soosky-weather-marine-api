@@ -4,12 +4,15 @@ export default class GlobalRateLimiter {
 
     constructor(
         private _windowMs: number,
-        private _max: number
+        private _max: number,
+        private _enabled: boolean = true
     ) {}
 
     // Gọi 1 lần / request. Trả `false` nghĩa là đã vượt giới hạn trong cửa sổ
     // hiện tại — nơi gọi tự quyết định throw lỗi gì (xem Server.ts).
     public allow(): boolean {
+        if (!this._enabled) return true; // tắt rate limit -> luôn cho qua
+
         const now = Date.now();
 
         // Hết cửa sổ cũ -> reset đếm lại từ 0, bắt đầu cửa sổ mới.
