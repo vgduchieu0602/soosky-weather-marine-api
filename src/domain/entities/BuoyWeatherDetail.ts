@@ -10,6 +10,9 @@ import {OwmForecast} from './OwmForecast';
 export interface BuoyWeatherDetail {
     buoyId: string;
 
+    // Vị trí buoy để FE vẽ marker trên bản đồ (echo lại lat/lon client truyền vào).
+    location: { lat: number; lon: number };
+
     temperature: number | null;
     windSpeed: number | null;
     windDirection: number | null;
