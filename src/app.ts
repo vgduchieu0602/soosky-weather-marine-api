@@ -3,7 +3,10 @@ import Server from './http/Server'
 import NoaaTidesRepository from './adapters/noaa/NoaaTideRepository';
 import GetTideChartUseCase from './domain/use-cases/tide/getTideChartUseCase';
 import NdbcBuoyRepository from './adapters/ndbc/NdbcBuoyRepository';
+import NdbcStationSource from './adapters/ndbc/NdbcStationSource';
+import MongoBuoyStationStore from './adapters/mongo/stores/MongoBuoyStationStore';
 import GetBuoyWeatherDetailUseCase from './domain/use-cases/buoy/GetBuoyWeatherDetailUseCase';
+import ListBuoysUseCase from './domain/use-cases/buoy/ListBuoysUseCase';
 
 import connectMongo from './adapters/mongo/connectMongo';
 import WeatherBitCurrentRepository from './adapters/weatherbit/WeatherBitCurrentRepository';
@@ -15,7 +18,7 @@ import OwmCurrentRepository from './adapters/owm/OwmCurrentRepository';
 import GetMapTileUseCase from './domain/use-cases/map/GetMapTileUseCase';
 import OwmMapTileRepository from './adapters/owm/OwmMapTileRepository';
 import InMemoryMapTileRepository from './adapters/cache/InMemoryMapTileRepository';
-import GlobalRateLimiter from './http/GlobalRateLimiter';
+import RateLimiter from './http/RateLimiter';
 
 import GetRadarUseCase from './domain/use-cases/radar/GetRadarUseCase';
 import RainviewerRadarRepository from './adapters/rainviewer/RainviewerRadarRepository';
@@ -96,10 +99,17 @@ const weatherAdvisorRepo = new GeminiWeatherAdvisor(config.gemini.apiKey, config
 // giảm null — xem StationLocator.ts (cache directory in-memory 24h).
 const stationLocator = new StationLocatorImpl()
 
+// Vị trí buoy (collection "buoys" dùng chung với bot crawl). Store = đọc/lazy-seed;
+// source = fallback NDBC khi DB rỗng.
+const buoyStationStore = new MongoBuoyStationStore()
+const buoyStationSource = new NdbcStationSource()
+
 // Giới hạn TỔNG số request (mọi client cộng lại) trong 1 cửa sổ — xem
 // GlobalRateLimiter.ts. Dùng đúng config đã khai báo sẵn từ đầu project
 // (RATE_LIMIT_WINDOW_MS/RATE_LIMIT_GLOBAL_MAX), trước đây chưa có middleware nào áp dụng.
-const rateLimiter = new GlobalRateLimiter(config.rateLimit.windowMs, config.rateLimit.globalMax, config.rateLimit.enabled)
+const rateLimiter = new RateLimiter(config.rateLimit.windowMs, config.rateLimit.globalMax, config.rateLimit.ipMax, config.rateLimit.enabled)
+// Bucket riêng cho map tile (hạn cao hơn) — xem config.rateLimit.map*.
+const mapRateLimiter = new RateLimiter(config.rateLimit.windowMs, config.rateLimit.mapGlobalMax, config.rateLimit.mapIpMax, config.rateLimit.enabled)
 
 // --- Use Cases ---
 const useCases = {
@@ -108,8 +118,9 @@ const useCases = {
     },
     buoy: {
         getBuoyWeatherDetail: new GetBuoyWeatherDetailUseCase(
-            mongoBuoyRepo, cachedTideRepo, weatherBitRepo, forecastRepo, stationLocator
-        )
+            mongoBuoyRepo, cachedTideRepo, weatherBitRepo, forecastRepo, stationLocator, buoyStationStore
+        ),
+        listBuoys: new ListBuoysUseCase(buoyStationStore, buoyStationSource)
     },
     weather: {
         getPointWeatherDetail: new GetPointWeatherDetailUseCase(
@@ -140,7 +151,7 @@ const useCases = {
 /*----------------------------------------------------------------------------------*/
 
 async function startServer() {
-    const server = new Server(useCases, rateLimiter);
+    const server = new Server(useCases, rateLimiter, mapRateLimiter);
     await server.listen(HTTP_PORT, HTTP_HOST);
     console.log(`Soosky Weather Marine API running on http://${HTTP_HOST}:${HTTP_PORT}`);
 }

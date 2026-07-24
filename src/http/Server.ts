@@ -10,9 +10,12 @@
 
 import express, {NextFunction, Request, Response} from 'express'
 import ClientError from './ClientError'
+import NoTideDataError from '../domain/errors/NoTideDataError'
+import UpstreamUnavailableError from '../domain/errors/UpstreamUnavailableError'
 import { formatResponseData } from './formatResponseData'
 import GetTideChartUseCase from '../domain/use-cases/tide/getTideChartUseCase';
 import GetBuoyWeatherDetailUseCase from '../domain/use-cases/buoy/GetBuoyWeatherDetailUseCase';
+import ListBuoysUseCase from '../domain/use-cases/buoy/ListBuoysUseCase';
 import GetPointWeatherDetailUseCase from '../domain/use-cases/weather/GetPointWeatherDetailUseCase';
 import GetMapTileUseCase from '../domain/use-cases/map/GetMapTileUseCase';
 import GetRadarUseCase from '../domain/use-cases/radar/GetRadarUseCase';
@@ -20,7 +23,7 @@ import GetAlertsUseCase from '../domain/use-cases/alert/GetAlertsUseCase';
 import GetWeatherTipsUseCase from '../domain/use-cases/tips/GetWeatherTipsUseCase';
 import { MAP_LAYERS, MapLayer } from '../domain/entities/MapTile';
 import { PERSONAS, Persona } from '../domain/entities/WeatherTips';
-import GlobalRateLimiter from './GlobalRateLimiter';
+import RateLimiter from './RateLimiter';
 
 export {Server as default}
 
@@ -41,6 +44,7 @@ type ServerUseCases = {
     }
     buoy: {
         getBuoyWeatherDetail: GetBuoyWeatherDetailUseCase;
+        listBuoys: ListBuoysUseCase;
     }
     weather: {
         getPointWeatherDetail: GetPointWeatherDetailUseCase;
@@ -64,7 +68,8 @@ type ServerUseCases = {
 class Server {
     constructor (
         private _useCases: ServerUseCases,
-        private _rateLimiter: GlobalRateLimiter
+        private _rateLimiter: RateLimiter,
+        private _mapRateLimiter: RateLimiter
     ) {
         this._registerRouter();
         this._registerErrorHandler();
@@ -78,6 +83,9 @@ class Server {
         ],
         ['GET', '/api/v1/tides',
             this._GET_tides.bind(this)
+        ],
+        ['GET', '/api/v1/buoys',
+            this._GET_buoys.bind(this)
         ],
         ['GET', '/api/v1/buoys/:buoyId/weather',
             this._GET_buoyWeather.bind(this)
@@ -102,13 +110,23 @@ class Server {
     ]
 
     private _registerRouter(): void {
+        // Tin 1 hop proxy trước (nginx/Render/Cloudflare) -> req.ip lấy từ
+        // X-Forwarded-For thay vì IP proxy. Bắt buộc để rate limit per-IP đúng.
+        // Nếu deploy KHÔNG qua proxy: đổi về false. Nhiều tầng proxy: tăng số hop.
+        this._server.set('trust proxy', 1)
+
         // Parse body JSON (cho POST /weather-tips). Đăng ký trước route; GET
         // không có body nên không ảnh hưởng. Giới hạn size tránh payload lớn bất thường.
         this._server.use(express.json({limit: '64kb'}))
 
-        this._server.use((_req: Request, _res: Response, next: NextFunction) => {
-            if (!this._rateLimiter.allow()) {
-                throw new ClientError('Too many requests.', 429, 'RATE_LIMITED')
+        this._server.use((req: Request, _res: Response, next: NextFunction) => {
+            // Map tile bùng nổ theo lô (zoom/pan) -> bucket riêng hạn cao; endpoint
+            // data đắt -> bucket chặt. req.path bỏ query string.
+            const limiter = req.path.startsWith('/api/v1/maps/') ? this._mapRateLimiter : this._rateLimiter
+            const blocked = limiter.check(req.ip ?? 'unknown')
+            if (blocked) {
+                // scope IP -> client này quá nhiều; GLOBAL -> tổng toàn server quá tải.
+                throw new ClientError(`Too many requests (${blocked}).`, 429, 'RATE_LIMITED')
             }
 
             next()
@@ -138,6 +156,19 @@ class Server {
                     statusCode = err.statusCode;
                     message = err.message;
                     code = err.code;
+                    break;
+                case (err instanceof NoTideDataError):
+                    // Trạm client chọn không có tide prediction -> lỗi input, không phải 500.
+                    statusCode = 422;
+                    message = err.message;
+                    code = 'NO_TIDE_DATA';
+                    break;
+                case (err instanceof UpstreamUnavailableError):
+                    // Nguồn ngoài (NOAA) trục trặc tạm thời.
+                    statusCode = 502;
+                    message = 'Upstream service unavailable.';
+                    code = 'UPSTREAM_UNAVAILABLE';
+                    console.warn(`[502] ${req.method} ${req.originalUrl} -> ${err.message}`);
                     break;
                 default:
                     statusCode = 500;
@@ -185,6 +216,17 @@ class Server {
         }
 
         const data = await this._useCases.tide.getTideChart.execute({stationId, date, days})
+
+        return res.json({
+            ok: true,
+            data: formatResponseData(data)
+        })
+    }
+
+    private async _GET_buoys (_req: Request, res: Response) {
+        // Danh sách buoy (vị trí + tên) cho FE vẽ marker trên bản đồ. Đọc từ DB
+        // (bot crawl); DB rỗng -> fallback NDBC + seed nền.
+        const data = await this._useCases.buoy.listBuoys.execute()
 
         return res.json({
             ok: true,
@@ -247,7 +289,14 @@ class Server {
         }
         if (isNaN(z) || isNaN(x) || isNaN(y)) throw new ClientError("'z', 'x', 'y' must be integers.")
 
-        const tile = await this._useCases.map.getMapTile.execute({layer: layer as MapLayer, z, x, y})
+        // Tile ảnh nhị phân — không có "trạng thái rỗng" hợp lý -> upstream (OWM)
+        // lỗi thì 502, không phải 500.
+        let tile;
+        try {
+            tile = await this._useCases.map.getMapTile.execute({layer: layer as MapLayer, z, x, y})
+        } catch (err) {
+            throw new UpstreamUnavailableError(`map tile upstream failed: ${(err as Error)?.message ?? err}`)
+        }
 
         res.set('Content-Type', tile.contentType)
         return res.send(tile.buffer)
@@ -308,10 +357,16 @@ class Server {
             throw new ClientError("Body field 'weather' (object) is required.")
         }
 
-        const data = await this._useCases.tips.getWeatherTips.execute({
-            persona: persona as Persona,
-            weather
-        })
+        // Gemini lỗi/quota/safety-block -> 502, không phải 500.
+        let data;
+        try {
+            data = await this._useCases.tips.getWeatherTips.execute({
+                persona: persona as Persona,
+                weather
+            })
+        } catch (err) {
+            throw new UpstreamUnavailableError(`weather tips upstream failed: ${(err as Error)?.message ?? err}`)
+        }
 
         return res.json({
             ok: true,

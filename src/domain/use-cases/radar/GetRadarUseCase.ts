@@ -18,7 +18,21 @@ export default class GetRadarUseCase {
     constructor(private _radarRepo: RadarRepository) {}
 
     public async execute(query: RadarQuery): Promise<RadarView> {
-        const info = await this._radarRepo.getRadarInfo();
-        return { ...info, lat: query.lat, lon: query.lon };
+        try {
+            const info = await this._radarRepo.getRadarInfo();
+            return { ...info, lat: query.lat, lon: query.lon };
+        } catch (err) {
+            // Upstream (RainViewer) lỗi & không có cache -> degrade rỗng (200) thay
+            // vì 500. FE hiển thị "không có dữ liệu radar" thay vì màn hình lỗi.
+            console.warn(`[radar] upstream lỗi -> degrade rỗng: ${(err as Error)?.message ?? err}`);
+            return {
+                host: '',
+                past: [],
+                nowcast: [],
+                generatedAt: new Date().toISOString(),
+                lat: query.lat,
+                lon: query.lon
+            };
+        }
     }
 }
