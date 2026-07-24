@@ -11,6 +11,8 @@ export function isFresh(freshAt: Date | string | null | undefined, ttlMs: number
 }
 
 // Cache còn tươi -> trả cache; hết hạn/trống -> gọi source, ghi cache, trả về.
+// Refetch LỖI mà vẫn còn bản cache (dù stale) -> trả bản stale (data cũ tốt hơn
+// 500). Chỉ ném lỗi khi HOÀN TOÀN không có cache để phục vụ.
 export async function cacheAside<Q, V>(
     store: CacheStore<Q, V>,
     query: Q,
@@ -22,7 +24,15 @@ export async function cacheAside<Q, V>(
         return hit.value;
     }
 
-    const fresh = await fetchFresh();
-    await store.write(query, fresh);
-    return fresh;
+    try {
+        const fresh = await fetchFresh();
+        await store.write(query, fresh);
+        return fresh;
+    } catch (err) {
+        if (hit) {
+            console.warn(`[cache] refetch lỗi -> phục vụ bản stale: ${(err as Error)?.message ?? err}`);
+            return hit.value;
+        }
+        throw err; // không có cache -> đành ném lên
+    }
 }

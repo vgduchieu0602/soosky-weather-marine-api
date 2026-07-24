@@ -40,6 +40,11 @@ const config = {
     rateLimit: {
         enabled: process.env.RATE_LIMIT_ENABLED !== 'false', // đặt 'false' để tắt (test); mặc định bật
         windowMs: parseInt(process.env.RATE_LIMIT_WINDOW_MS || '60000'),
-        globalMax: parseInt(process.env.RATE_LIMIT_GLOBAL_MAX || '120')
+        globalMax: parseInt(process.env.RATE_LIMIT_GLOBAL_MAX || '120'), // trần tổng mọi IP (endpoint data)
+        ipMax: parseInt(process.env.RATE_LIMIT_IP_MAX || '60'),          // trần mỗi IP (endpoint data)
+        // Bucket riêng cho /api/v1/maps/* — tile map bùng nổ theo lô (zoom/pan tải
+        // hàng chục tile/lần), rẻ + đã cache -> hạn cao hơn nhiều endpoint data.
+        mapGlobalMax: parseInt(process.env.RATE_LIMIT_MAP_GLOBAL_MAX || '1200'),
+        mapIpMax: parseInt(process.env.RATE_LIMIT_MAP_IP_MAX || '600')
     }
 }

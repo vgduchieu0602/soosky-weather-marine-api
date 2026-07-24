@@ -1,5 +1,7 @@
 import TideRepository, { TideQuery } from "../../domain/repositories/ITideRepository";
 import { TideChart, TidePoint, TideExtreme } from "../../domain/entities/TideChart";
+import NoTideDataError from "../../domain/errors/NoTideDataError";
+import UpstreamUnavailableError from "../../domain/errors/UpstreamUnavailableError";
 
 export { NoaaTidesRepository as default };
 
@@ -74,13 +76,24 @@ class NoaaTidesRepository implements TideRepository {
         });
 
         const resp = await fetch(`${NOAA_BASE}?${params.toString()}`);
-        if (!resp.ok) {
-            throw new Error(`NOAA request failed: HTTP ${resp.status}`);
+
+        // NOAA báo lỗi INPUT (trạm không có prediction, trạm không hợp lệ, sai
+        // datum) qua body {error:{message}} — KÈM cả khi HTTP 400. Nên parse body
+        // TRƯỚC, không chặn ở resp.ok. Body không phải JSON -> upstream trục trặc thật.
+        let data: NoaaResponse;
+        try {
+            data = (await resp.json()) as NoaaResponse;
+        } catch {
+            throw new UpstreamUnavailableError(`NOAA request failed: HTTP ${resp.status} (non-JSON response)`);
         }
 
-        const data = (await resp.json()) as NoaaResponse;
         if (data.error) {
-            throw new Error(`NOAA error: ${data.error.message}`);
+            // Lỗi do trạm/datum client chọn -> phân biệt để HTTP trả 422, KHÔNG 500.
+            throw new NoTideDataError((data.error.message ?? "").trim() || "No tide prediction data for this station.");
+        }
+
+        if (!resp.ok) {
+            throw new UpstreamUnavailableError(`NOAA request failed: HTTP ${resp.status}`);
         }
 
         return data;

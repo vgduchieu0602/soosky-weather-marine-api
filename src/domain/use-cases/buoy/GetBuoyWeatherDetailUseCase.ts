@@ -3,6 +3,7 @@ import TideRepository from "../../repositories/ITideRepository";
 import WeatherBitRepository from "../../repositories/IWeatherBitRepository";
 import OwmForecastRepository from "../../repositories/IOwmForecastRepository";
 import StationLocator from "../../repositories/IStationLocator";
+import BuoyStationRepository from "../../repositories/IBuoyStationRepository";
 import { BuoyWeatherDetail } from "../../entities/BuoyWeatherDetail";
 import { resilientSource } from "../resilientSource";
 import { resolveTide } from "../resolveTide";
@@ -21,7 +22,8 @@ export default class GetBuoyWeatherDetailUseCase {
         private _tideRepo: TideRepository,
         private _weatherBitRepo: WeatherBitRepository,
         private _forecastRepo: OwmForecastRepository,
-        private _locator: StationLocator
+        private _locator: StationLocator,
+        private _stationRepo: BuoyStationRepository
     ) {}
 
     public async execute (query: BuoyWeatherDetailQuery): Promise<BuoyWeatherDetail> {
@@ -38,6 +40,12 @@ export default class GetBuoyWeatherDetailUseCase {
                 () => this._forecastRepo.getForecast({ lat: query.lat, lon: query.lon })),
             resolveTide(this._tideRepo, this._locator, query.tideStationId, query.lat, query.lon, today),
         ]);
+
+        // Lazy seed vị trí buoy vào "buoys" nếu chưa có (TH3) — best-effort,
+        // fire-and-forget, KHÔNG await để không thêm độ trễ cho response.
+        // Chỉ insert khi thiếu, không đè vị trí chuẩn bot crawl.
+        void this._stationRepo.seedIfAbsent({ buoyId: query.buoyId, name: null, lat: query.lat, lon: query.lon })
+            .catch((err) => console.warn(`[buoys] lazy seed failed: ${(err as Error)?.message ?? err}`));
 
         return {
             buoyId: query.buoyId,
