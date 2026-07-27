@@ -15,8 +15,12 @@ type OwmStep = {
     main?: { temp?: number; temp_min?: number; temp_max?: number };
     wind?: { speed?: number };
     pop?: number;
-    weather?: { description?: string }[];
+    weather?: { id?: number; description?: string; icon?: string }[];
+    sys?: { pod?: string };     //'d' | 'n' — part of day theo chính OWM
 };
+
+// Hậu tố ngày/đêm dùng cho conditionCode + icon.
+type PartOfDay = 'd' | 'n';
 
 export default class OwmForecastRepositoryImpl implements OwmForecastRepository {
     public async getForecast(query: OwmForecastQuery): Promise<OwmForecast> {
@@ -40,14 +44,20 @@ export default class OwmForecastRepositoryImpl implements OwmForecastRepository 
     }
 
     // Mỗi bước 3h -> 1 điểm hourly (granularity 3h là mức của gói free).
+    // Hậu tố ngày/đêm lấy theo ĐÚNG bước đó -> icon đêm cho các bước ban đêm.
     private _toHourly(list: OwmStep[]): HourlyForecastPoint[] {
-        return list.map((item) => ({
-            time: new Date(item.dt * 1000).toISOString(),
-            temperature: item.main?.temp ?? null,
-            windSpeed: item.wind?.speed ?? null,
-            pop: item.pop ?? null,
-            description: item.weather?.[0]?.description ?? null,
-        }));
+        return list.map((item) => {
+            const pod = this._partOfDay(item);
+            return {
+                time: new Date(item.dt * 1000).toISOString(),
+                temperature: item.main?.temp ?? null,
+                windSpeed: item.wind?.speed ?? null,
+                pop: item.pop ?? null,
+                description: item.weather?.[0]?.description ?? null,
+                conditionCode: this._conditionCode(item, pod),
+                icon: this._icon(item, pod),
+            };
+        });
     }
 
     // Gộp các bước 3h theo NGÀY (UTC) -> tối đa 5 ngày. temp min/max lấy biên,
@@ -66,19 +76,24 @@ export default class OwmForecastRepositoryImpl implements OwmForecastRepository 
 
         return dates.map((date) => {
             const steps = byDate.get(date)!;
+            const midday = this._middayStep(steps);
             return {
                 date,
                 tempMin: this._min(steps.map((s) => s.main?.temp_min)),
                 tempMax: this._max(steps.map((s) => s.main?.temp_max)),
                 windSpeed: this._max(steps.map((s) => s.wind?.speed)),
                 pop: this._max(steps.map((s) => s.pop)),
-                description: this._middayDescription(steps),
+                description: midday?.weather?.[0]?.description ?? null,
+                // Ép hậu tố 'd': 1 điểm daily đại diện CẢ ngày -> FE luôn vẽ icon ngày.
+                // (bước gần 12:00 UTC có thể là ban đêm ở múi giờ lệch nhiều.)
+                conditionCode: midday ? this._conditionCode(midday, 'd') : null,
+                icon: midday ? this._icon(midday, 'd') : null,
             };
         });
     }
 
-    // Bước gần 12:00 UTC nhất trong ngày -> mô tả đại diện.
-    private _middayDescription(steps: OwmStep[]): string | null {
+    // Bước gần 12:00 UTC nhất trong ngày -> bước đại diện (description + icon).
+    private _middayStep(steps: OwmStep[]): OwmStep | null {
         let best: OwmStep | null = null;
         let bestDiff = Infinity;
         for (const s of steps) {
@@ -89,7 +104,27 @@ export default class OwmForecastRepositoryImpl implements OwmForecastRepository 
                 best = s;
             }
         }
-        return best?.weather?.[0]?.description ?? null;
+        return best;
+    }
+
+    // Ngày/đêm của 1 bước: ưu tiên hậu tố icon OWM ('02n'), fallback sys.pod.
+    // Không suy ra từ giờ UTC — OWM đã tính theo giờ mọc/lặn tại toạ độ đó.
+    private _partOfDay(step: OwmStep): PartOfDay {
+        const fromIcon = step.weather?.[0]?.icon?.slice(-1);
+        if (fromIcon === 'd' || fromIcon === 'n') return fromIcon;
+        return step.sys?.pod === 'n' ? 'n' : 'd';
+    }
+
+    // Condition group id + hậu tố ngày/đêm, vd 801 -> "801d" / "801n".
+    private _conditionCode(step: OwmStep, pod: PartOfDay): string | null {
+        const id = step.weather?.[0]?.id;
+        return typeof id === 'number' ? `${id}${pod}` : null;
+    }
+
+    // Mã icon OWM chuẩn hoá về đúng hậu tố `pod`, vd "02d" -> "02n".
+    private _icon(step: OwmStep, pod: PartOfDay): string | null {
+        const icon = step.weather?.[0]?.icon;
+        return icon ? `${icon.slice(0, 2)}${pod}` : null;
     }
 
     private _min(values: (number | undefined)[]): number | null {

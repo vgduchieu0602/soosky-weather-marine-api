@@ -1,6 +1,7 @@
 import TideRepository, { TideQuery } from "../../domain/repositories/ITideRepository";
 import { TideChart, TidePoint, TideExtreme } from "../../domain/entities/TideChart";
 import NoTideDataError from "../../domain/errors/NoTideDataError";
+import StationNotFoundError from "../../domain/errors/StationNotFoundError";
 import UpstreamUnavailableError from "../../domain/errors/UpstreamUnavailableError";
 
 export { NoaaTidesRepository as default };
@@ -8,6 +9,12 @@ export { NoaaTidesRepository as default };
 /* -------------------------------------------------------------------------- */
 
 const NOAA_BASE = "https://api.tidesandcurrents.noaa.gov/api/prod/datagetter";
+
+// NOAA nhồi MỌI lỗi input vào chung 1 body {error:{message}} + HTTP 400, nên chỉ
+// còn cách match message để phân biệt "trạm không tồn tại" (404) với "trạm có
+// thật nhưng không có prediction" (422). Message thật:
+//   " The station is not a valid station or there is system error."
+const NOAA_UNKNOWN_STATION = /not a valid station/i;
 
 // Kiểu thô NOAA trả về — giữ tên tắt `t`/`v` vì đó là tên NOAA thật.
 type NoaaPrediction = { t: string; v: string; type?: "H" | "L" };
@@ -88,8 +95,14 @@ class NoaaTidesRepository implements TideRepository {
         }
 
         if (data.error) {
-            // Lỗi do trạm/datum client chọn -> phân biệt để HTTP trả 422, KHÔNG 500.
-            throw new NoTideDataError((data.error.message ?? "").trim() || "No tide prediction data for this station.");
+            // Lỗi do trạm/datum client chọn -> phân biệt để HTTP trả 4xx, KHÔNG 500.
+            const reason = (data.error.message ?? "").trim();
+
+            if (NOAA_UNKNOWN_STATION.test(reason)) {
+                throw new StationNotFoundError(`Station '${stationId}' does not exist.`);
+            }
+
+            throw new NoTideDataError(reason || "No tide prediction data for this station.");
         }
 
         if (!resp.ok) {

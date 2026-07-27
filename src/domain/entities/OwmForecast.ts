@@ -1,5 +1,11 @@
 // ============================================================================
 // Dữ liệu forecast (5 ngày + theo giờ) từ OWM.
+//
+// conditionCode / icon: mã để FE chọn asset, LUÔN có hậu tố ngày/đêm 'd'|'n'.
+//   - conditionCode = condition group id của OWM + hậu tố, vd 801 -> "801d" / "801n"
+//   - icon          = mã icon OWM tương ứng, vd "02d" / "02n"
+// FE không phải tự tính giờ mọc/lặn: hậu tố lấy từ chính bước dữ liệu OWM
+// (weather[0].icon / sys.pod). Điểm `daily` đại diện cả NGÀY nên luôn 'd'.
 // ============================================================================
 
 export interface HourlyForecastPoint {
@@ -8,6 +14,8 @@ export interface HourlyForecastPoint {
     windSpeed: number | null;
     pop: number | null; //xác xuất mưa 0 - 1
     description: string | null;
+    conditionCode: string | null;   //vd "801d" | "801n"
+    icon: string | null;            //vd "02d"  | "02n"
 }
 
 export interface DailyForecastPoint {
@@ -17,6 +25,8 @@ export interface DailyForecastPoint {
     windSpeed: number | null;
     pop: number | null;
     description: string | null;
+    conditionCode: string | null;   //luôn hậu tố 'd' — đại diện cả ngày
+    icon: string | null;            //luôn hậu tố 'd'
 }
 
 export interface OwmForecast {
