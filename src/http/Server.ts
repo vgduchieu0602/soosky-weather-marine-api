@@ -11,6 +11,7 @@
 import express, {NextFunction, Request, Response} from 'express'
 import ClientError from './ClientError'
 import NoTideDataError from '../domain/errors/NoTideDataError'
+import StationNotFoundError from '../domain/errors/StationNotFoundError'
 import UpstreamUnavailableError from '../domain/errors/UpstreamUnavailableError'
 import { formatResponseData } from './formatResponseData'
 import GetTideChartUseCase from '../domain/use-cases/tide/getTideChartUseCase';
@@ -31,6 +32,15 @@ export {Server as default}
 
 const HTTP_DEFAULT_PORT = 3002;
 const HTTP_DEFAULT_HOST = "0.0.0.0";
+
+// Station id NOAA CO-OPS luôn là 7 chữ số. Chặn tại đây để id rác (chữ, ký tự
+// đặc biệt) trả 400 thay vì đi 1 vòng NOAA rồi về 404 với message của họ.
+const NOAA_STATION_ID = /^\d{7}$/;
+
+// Trần 'days'. NOAA cho tới 1 năm/lần nhưng days=365 trả ~560KB, và MỖI giá trị
+// days sinh 1 document cache riêng (xem MongoTideCache) + 2 call NOAA -> để mở
+// là vừa tốn quota vừa phình cache. 7 ngày đủ cho biểu đồ tide của FE.
+const MAX_TIDE_DAYS = 7;
 
 /*----------------------------------------------------------------------------------------*/
 
@@ -157,8 +167,16 @@ class Server {
                     message = err.message;
                     code = err.code;
                     break;
+                case (err instanceof StationNotFoundError):
+                    // Trạm không tồn tại -> 404. Đặt TRƯỚC NoTideDataError case cho rõ
+                    // ý; hai class không kế thừa nhau nên thứ tự không bắt buộc.
+                    statusCode = 404;
+                    message = err.message;
+                    code = 'STATION_NOT_FOUND';
+                    break;
                 case (err instanceof NoTideDataError):
-                    // Trạm client chọn không có tide prediction -> lỗi input, không phải 500.
+                    // Trạm CÓ thật nhưng không có tide prediction (Great Lakes,
+                    // water-level-only) -> lỗi input, không phải 500.
                     statusCode = 422;
                     message = err.message;
                     code = 'NO_TIDE_DATA';
@@ -201,6 +219,7 @@ class Server {
         const daysRaw = req.query.days as string | undefined;
 
         if (!stationId) throw new ClientError("Query param 'stationId' is required." );
+        if (!NOAA_STATION_ID.test(stationId)) throw new ClientError("'stationId' must be a 7-digit NOAA station id.");
 
         // date luôn = HÔM NAY (UTC), backend tự set — FE không cần truyền. Tide chart
         // luôn hiển thị ngày hiện tại; dữ liệu trả về theo giờ để FE vẽ curve.
@@ -209,9 +228,14 @@ class Server {
         let days: number | undefined;
 
         if (daysRaw !== undefined) {
-            days = parseInt(daysRaw);
-            if (isNaN(days) || days < 1) {
+            // parseInt nuốt phần rác ("1.9" -> 1, "2abc" -> 2) nên nhận âm thầm giá
+            // trị sai kiểu -> ép cả chuỗi phải là chữ số trước khi parse.
+            if (!/^\d+$/.test(daysRaw)) {
                 throw new ClientError("'days' must be a positive integer.");
+            }
+            days = parseInt(daysRaw, 10);
+            if (days < 1 || days > MAX_TIDE_DAYS) {
+                throw new ClientError(`'days' must be between 1 and ${MAX_TIDE_DAYS}.`);
             }
         }
 

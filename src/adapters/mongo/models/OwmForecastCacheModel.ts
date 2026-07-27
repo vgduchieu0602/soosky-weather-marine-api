@@ -2,20 +2,24 @@ import {Schema, model} from 'mongoose'
 import {HourlyForecastPoint, DailyForecastPoint} from '../../../domain/entities/OwmForecast'
 
 const hourlySchema = new Schema<HourlyForecastPoint>({
-    time:        {type: String, required: true},
-    temperature: {type: Number, default: null},
-    windSpeed:   {type: Number, default: null},
-    pop:         {type: Number, default: null},
-    description: {type: String, default: null}
+    time:          {type: String, required: true},
+    temperature:   {type: Number, default: null},
+    windSpeed:     {type: Number, default: null},
+    pop:           {type: Number, default: null},
+    description:   {type: String, default: null},
+    conditionCode: {type: String, default: null},
+    icon:          {type: String, default: null}
 }, {_id: false})
 
 const dailySchema = new Schema<DailyForecastPoint>({
-    date:        {type: String, required: true},
-    tempMin:     {type: Number, default: null},
-    tempMax:     {type: Number, default: null},
-    windSpeed:   {type: Number, default: null},
-    pop:         {type: Number, default: null},
-    description: {type: String, default: null}
+    date:          {type: String, required: true},
+    tempMin:       {type: Number, default: null},
+    tempMax:       {type: Number, default: null},
+    windSpeed:     {type: Number, default: null},
+    pop:           {type: Number, default: null},
+    description:   {type: String, default: null},
+    conditionCode: {type: String, default: null},
+    icon:          {type: String, default: null}
 }, {_id: false})
 
 export interface OwmForecastCacheDoc {
