@@ -27,6 +27,7 @@ export default class WeatherBitCurrentRepository implements WeatherBitRepository
             
             uvIndex: d.uv ?? null,
             humidity: d.rh ?? null,
+            dewPoint: d.dewpt ?? null,
             
             updatedAt: new Date(d.ts * 1000).toISOString()
         }

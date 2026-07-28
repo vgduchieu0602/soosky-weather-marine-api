@@ -28,6 +28,7 @@ export default class CachedWeatherBitRepository implements WeatherBitRepository 
                 lat: query.lat,
                 lon: query.lon,
                 humidity: entry.humidity,
+                dewPoint: entry.dewPoint,
                 uvIndex: entry.uvIndex,
                 updatedAt: entry.humidityUpdatedAt
             }
@@ -37,11 +38,13 @@ export default class CachedWeatherBitRepository implements WeatherBitRepository 
 
         const patch: Partial<WeatherBitCacheEntry> = {}
         const humidity = humidityFresh ? entry!.humidity : fresh.humidity
+        const dewPoint = humidityFresh ? entry!.dewPoint : fresh.dewPoint
         const humidityUpdatedAt = humidityFresh ? entry!.humidityUpdatedAt : fresh.updatedAt
         const uvIndex = uvFresh ? entry!.uvIndex : fresh.uvIndex
 
         if (!humidityFresh) {
             patch.humidity = fresh.humidity
+            patch.dewPoint = fresh.dewPoint
             patch.humidityUpdatedAt = fresh.updatedAt
         }
         if (!uvFresh) {
@@ -55,6 +58,7 @@ export default class CachedWeatherBitRepository implements WeatherBitRepository 
             lat: query.lat,
             lon: query.lon,
             humidity,
+            dewPoint,
             uvIndex,
             updatedAt: humidityUpdatedAt
         }

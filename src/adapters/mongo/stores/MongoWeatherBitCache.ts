@@ -10,6 +10,7 @@ export default class MongoWeatherBitCache implements WeatherBitCacheStore {
         if (!doc) return null
         return {
             humidity: doc.humidity,
+            dewPoint: doc.dewPoint,
             humidityUpdatedAt: doc.humidityUpdatedAt,
             uvIndex: doc.uvIndex,
             uvUpdatedAt: doc.uvUpdatedAt
