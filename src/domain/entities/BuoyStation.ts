@@ -10,3 +10,4 @@ export interface BuoyStation {
     lat: number;
     lon: number;
 }
+

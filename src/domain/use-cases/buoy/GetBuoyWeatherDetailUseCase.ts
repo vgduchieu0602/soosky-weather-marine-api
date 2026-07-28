@@ -47,8 +47,13 @@ export default class GetBuoyWeatherDetailUseCase {
         void this._stationRepo.seedIfAbsent({ buoyId: query.buoyId, name: null, lat: query.lat, lon: query.lon })
             .catch((err) => console.warn(`[buoys] lazy seed failed: ${(err as Error)?.message ?? err}`));
 
+        // Thứ tự key BẮT BUỘC giống GetPointWeatherDetailUseCase — 2 endpoint dùng
+        // chung entity WeatherDetail, FE render bằng cùng 1 component.
         return {
             buoyId: query.buoyId,
+            // lat/lon client truyền vào -> luôn có giá trị (Server đã validate).
+            lat: query.lat,
+            lon: query.lon,
             temperature: buoy?.temperature ?? null,
             windSpeed: buoy?.windSpeed ?? null,
             windDirection: buoy?.windDirection ?? null,
@@ -59,6 +64,9 @@ export default class GetBuoyWeatherDetailUseCase {
             updatedAt: buoy?.updatedAt ?? null,
             visibility: buoy?.visibility ?? null,
             tideStationId: tideRes.tideStationId,
+            // Trạm phao cung cấp số đo = chính buoy client yêu cầu (endpoint
+            // /weather thì đây là phao gần nhất tự tra ra).
+            buoyStationId: query.buoyId,
             tideChart: tideRes.tideChart,
             uvIndex: weatherBit?.uvIndex ?? null,
             humidity: weatherBit?.humidity ?? null,
