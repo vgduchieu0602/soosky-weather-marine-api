@@ -47,7 +47,12 @@ export default class GetPointWeatherDetailUseCase {
             this._enrichBuoy(query.lat, query.lon),
         ]);
 
+        // Thứ tự key BẮT BUỘC giống GetBuoyWeatherDetailUseCase — 2 endpoint dùng
+        // chung entity WeatherDetail, FE render bằng cùng 1 component.
         return {
+            // Endpoint này KHÔNG hỏi theo phao -> luôn null -> HTTP trả "n/a".
+            // Phao dùng để bù waveHeight/waterTemp nằm ở `buoyStationId`.
+            buoyId: null,
             lat: query.lat,
             lon: query.lon,
             temperature: point?.temperature ?? null,

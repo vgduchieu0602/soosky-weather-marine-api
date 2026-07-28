@@ -1,32 +1,10 @@
-import {TideChart} from './TideChart';
-import {OwmForecast} from './OwmForecast';
+import {WeatherDetail} from './WeatherDetail';
 
 // ============================================================================
-// Entity TỔNG HỢP, hình dạng response cuối cùng của
-// endpoint GET /api/v1/buoys/:buoyId/weather. Gộp field từ 
-// BuoyWeather + TideChart + WeatherBit + OwmForecast lại thành 1 object.
+// Response của GET /api/v1/buoys/:buoyId/weather.
+// Alias thẳng sang WeatherDetail — CÙNG shape với PointWeatherDetail. Giữ tên
+// riêng để use-case đọc đúng nghiệp vụ, nhưng alias (không copy field) nên 2
+// endpoint KHÔNG THỂ lệch shape: sửa 1 chỗ là cả hai đổi theo.
 // ============================================================================
 
-export interface BuoyWeatherDetail {
-    buoyId: string;
-
-    temperature: number | null;
-    windSpeed: number | null;
-    windDirection: number | null;
-    gust: number | null;
-    waveHeight: number | null;
-    waterTemp: number | null;
-    atmospherePressure: number | null;
-    updatedAt: string | null;
-    visibility: number | null;
-
-    // Trạm tide dùng để lấy tideChart (client truyền hoặc auto gần nhất). null nếu
-    // không có/không resolve được.
-    tideStationId: string | null;
-    tideChart: TideChart | null;
-
-    uvIndex: number | null;
-    humidity: number | null;
-
-    forecast: OwmForecast | null;
-}
+export type BuoyWeatherDetail = WeatherDetail;
