@@ -51,6 +51,7 @@ export interface WeatherDetail {
     // --- WeatherBit ---
     uvIndex: number | null;
     humidity: number | null;
+    dewPoint: number | null;
 
     // --- OWM forecast (kèm conditionCode/icon ngày-đêm) ---
     forecast: OwmForecast | null;

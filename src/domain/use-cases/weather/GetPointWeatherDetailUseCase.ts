@@ -74,6 +74,7 @@ export default class GetPointWeatherDetailUseCase {
             tideChart: tideRes.tideChart,
             uvIndex: weatherBit?.uvIndex ?? null,
             humidity: weatherBit?.humidity ?? null,
+            dewPoint: weatherBit?.dewPoint ?? null,
             forecast,
         };
     }

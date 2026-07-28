@@ -82,6 +82,7 @@ export default class GetBuoyWeatherDetailUseCase {
             tideChart: tideRes.tideChart,
             uvIndex: weatherBit?.uvIndex ?? null,
             humidity: weatherBit?.humidity ?? null,
+            dewPoint: weatherBit?.dewPoint ?? null,
             forecast,
         };
     }
