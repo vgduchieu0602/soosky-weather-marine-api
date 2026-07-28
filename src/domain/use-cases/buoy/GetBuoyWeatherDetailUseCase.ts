@@ -1,4 +1,5 @@
 import BuoyWeatherRepository from "../../repositories/IBuoyWeatherRepository";
+import PointWeatherRepository from "../../repositories/IPointWeatherRepository";
 import TideRepository from "../../repositories/ITideRepository";
 import WeatherBitRepository from "../../repositories/IWeatherBitRepository";
 import OwmForecastRepository from "../../repositories/IOwmForecastRepository";
@@ -23,7 +24,10 @@ export default class GetBuoyWeatherDetailUseCase {
         private _weatherBitRepo: WeatherBitRepository,
         private _forecastRepo: OwmForecastRepository,
         private _locator: StationLocator,
-        private _stationRepo: BuoyStationRepository
+        private _stationRepo: BuoyStationRepository,
+        // Chỉ để lấy tình trạng thời tiết (conditionCode/icon/description) theo
+        // lat/lon: NDBC là trạm đo cảm biến, không có khái niệm "trời nhiều mây".
+        private _pointRepo: PointWeatherRepository
     ) {}
 
     public async execute (query: BuoyWeatherDetailQuery): Promise<BuoyWeatherDetail> {
@@ -31,9 +35,11 @@ export default class GetBuoyWeatherDetailUseCase {
 
         // MỖI nguồn bọc resilientSource: lỗi -> null (partial) + log, KHÔNG 500.
         // tide: resolveTide (client truyền hoặc thử vài trạm gần nhất, lấy trạm đầu có data).
-        const [buoy, weatherBit, forecast, tideRes] = await Promise.all([
+        const [buoy, point, weatherBit, forecast, tideRes] = await Promise.all([
             resilientSource('buoy', `buoy:${query.buoyId}`,
                 () => this._buoyRepo.getBuoyWeather({ buoyId: query.buoyId })),
+            resilientSource('current', `owmcur:${query.lat},${query.lon}`,
+                () => this._pointRepo.getPointWeather({ lat: query.lat, lon: query.lon })),
             resilientSource('weatherbit', `wbit:${query.lat},${query.lon}`,
                 () => this._weatherBitRepo.getWeatherBitCurrent({ lat: query.lat, lon: query.lon })),
             resilientSource('forecast', `fcst:${query.lat},${query.lon}`,
@@ -54,6 +60,12 @@ export default class GetBuoyWeatherDetailUseCase {
             // lat/lon client truyền vào -> luôn có giá trị (Server đã validate).
             lat: query.lat,
             lon: query.lon,
+            // Tình trạng thời tiết từ OWM current (NDBC không có) — giống hệt
+            // nguồn của endpoint /weather nên 2 card FE hiển thị nhất quán.
+            conditionCode: point?.conditionCode ?? null,
+            conditionMain: point?.conditionMain ?? null,
+            description: point?.description ?? null,
+            icon: point?.icon ?? null,
             temperature: buoy?.temperature ?? null,
             windSpeed: buoy?.windSpeed ?? null,
             windDirection: buoy?.windDirection ?? null,

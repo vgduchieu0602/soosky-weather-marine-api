@@ -12,6 +12,12 @@ export default class MongoPointWeatherCache implements CacheStore<PointWeatherQu
             value: {
                 lat: doc.lat,
                 lon: doc.lon,
+                // Doc ghi TRƯỚC khi có 4 field này -> undefined; ép về null để
+                // key luôn tồn tại (thiếu key sẽ KHÔNG thành "n/a" ở tầng HTTP).
+                conditionCode: doc.conditionCode ?? null,
+                conditionMain: doc.conditionMain ?? null,
+                description: doc.description ?? null,
+                icon: doc.icon ?? null,
                 windDirection: doc.windDirection,
                 windSpeed: doc.windSpeed,
                 gust: doc.gust,
@@ -30,6 +36,10 @@ export default class MongoPointWeatherCache implements CacheStore<PointWeatherQu
         await PointWeatherCacheModel.findOneAndUpdate(
             { lat: query.lat, lon: query.lon },
             { $set: {
+                conditionCode: value.conditionCode,
+                conditionMain: value.conditionMain,
+                description: value.description,
+                icon: value.icon,
                 windDirection: value.windDirection,
                 windSpeed: value.windSpeed,
                 gust: value.gust,
