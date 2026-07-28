@@ -1,5 +1,7 @@
 // ============================================================================
-// Dữ liệu forecast (5 ngày + theo giờ) từ OWM.
+// Dữ liệu forecast từ OWM: `hourly` = CHỈ các bước 3h của NGÀY HÔM NAY (theo
+// giờ địa phương tại toạ độ đó), `daily` = 5 ngày tổng hợp. Hai mảng chia ngày
+// theo cùng 1 mốc nên `daily[0].date` luôn là ngày của dải `hourly`.
 //
 // conditionCode / icon: mã để FE chọn asset, LUÔN có hậu tố ngày/đêm 'd'|'n'.
 //   - conditionCode = condition group id của OWM + hậu tố, vd 801 -> "801d" / "801n"

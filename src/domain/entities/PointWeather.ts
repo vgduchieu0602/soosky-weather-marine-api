@@ -9,6 +9,12 @@ export interface PointWeather {
     lat: number;
     lon: number;
 
+    // --- tình trạng thời tiết hiện tại (để FE vẽ card icon + nhãn + nhiệt độ) ---
+    conditionCode:      string | null; // "801d" / "801n" — group id + hậu tố ngày/đêm
+    conditionMain:      string | null; // "Clouds" — nhóm ngắn
+    description:        string | null; // "few clouds" — mô tả dài
+    icon:               string | null; // "02d" / "02n" — mã icon OWM
+
     windDirection:      number | null; // độ (0 - 360)
     windSpeed:          number | null; // m/s
     gust:               number | null; // m/s

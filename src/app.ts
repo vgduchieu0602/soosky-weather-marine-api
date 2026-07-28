@@ -124,7 +124,10 @@ const useCases = {
     },
     buoy: {
         getBuoyWeatherDetail: new GetBuoyWeatherDetailUseCase(
-            mongoBuoyRepo, cachedTideRepo, weatherBitRepo, forecastRepo, stationLocator, buoyStationStore
+            mongoBuoyRepo, cachedTideRepo, weatherBitRepo, forecastRepo, stationLocator, buoyStationStore,
+            // Dùng chung pointWeatherRepo với endpoint /weather -> cache OWM current
+            // share theo lat/lon, không phát sinh call thừa.
+            pointWeatherRepo
         ),
         listBuoys: new ListBuoysUseCase(buoyStationStore, buoyStationSource)
     },

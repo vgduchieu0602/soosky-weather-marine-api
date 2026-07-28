@@ -1,6 +1,7 @@
 import config from '../../config'
 import PointWeatherRepository, {PointWeatherQuery} from '../../domain/repositories/IPointWeatherRepository'
 import {PointWeather} from '../../domain/entities/PointWeather'
+import {partOfDay, conditionCode, conditionIcon} from './owmCondition'
 
 const OWM_CURRENT_BASE = 'https://api.openweathermap.org/data/2.5/weather';
 
@@ -16,9 +17,18 @@ export default class OwmCurrentRepository implements PointWeatherRepository {
 
         const json: any = await res.json();
 
+        // Endpoint current KHÔNG có `sys.pod` (chỉ forecast mới có) -> hậu tố
+        // ngày/đêm lấy từ chính `weather[0].icon` OWM trả về.
+        const weather = json.weather?.[0];
+        const pod = partOfDay(weather);
+
         return {
             lat: query.lat,
             lon: query.lon,
+            conditionCode: conditionCode(weather, pod),
+            conditionMain: weather?.main ?? null,
+            description: weather?.description ?? null,
+            icon: conditionIcon(weather, pod),
             windDirection: json.wind?.deg ?? null,
             windSpeed: json.wind?.speed ?? null,
             gust: json.wind?.gust ?? null,

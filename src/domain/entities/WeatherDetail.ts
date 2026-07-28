@@ -24,6 +24,14 @@ export interface WeatherDetail {
     lat: number | null;
     lon: number | null;
 
+    // --- tình trạng thời tiết hiện tại (card icon + nhãn + nhiệt độ) ---
+    // Nguồn: OWM current theo lat/lon — CẢ HAI endpoint. NDBC (phao) chỉ có số
+    // đo cảm biến, không có khái niệm "trời nhiều mây".
+    conditionCode: string | null;   // "801d" | "801n"
+    conditionMain: string | null;   // "Clouds"
+    description: string | null;     // "few clouds"
+    icon: string | null;            // "02d" | "02n"
+
     // --- số đo hiện tại ---
     temperature: number | null;
     windSpeed: number | null;
