@@ -59,11 +59,34 @@ const {
 } = config;
 
 const TWO_MINUTES = 2 * 60 * 1000;
+const SIX_MINUTES = 6 * 60 * 1000;
 const TEN_MINUTES = 10 * 60 * 1000;
+const FIFTEEN_MINUTES = 15 * 60 * 1000;
 const THIRTY_MINUTES = 30 * 60 * 1000;
 const ONE_HOUR = 60 * 60 * 1000;
 const THREE_HOURS = 3 * ONE_HOUR;
 const ONE_DAY = 24 * ONE_HOUR;
+
+// TTL tạm cho tester. Sau khi test xong, đổi dòng `ACTIVE_WEATHER_CACHE_TTL`
+// từ `.test` sang `.normal` là khôi phục toàn bộ TTL ban đầu.
+const WEATHER_CACHE_TTL = {
+    test: {
+        ndbc: SIX_MINUTES,
+        weatherBitHumidity: TEN_MINUTES,
+        weatherBitUv: TEN_MINUTES,
+        owmForecast: FIFTEEN_MINUTES
+    },
+    normal: {
+        ndbc: THIRTY_MINUTES,
+        weatherBitHumidity: ONE_HOUR,
+        weatherBitUv: THREE_HOURS,
+        owmForecast: ONE_DAY
+    }
+} as const
+
+const ACTIVE_WEATHER_CACHE_TTL = WEATHER_CACHE_TTL.test
+// const ACTIVE_WEATHER_CACHE_TTL = WEATHER_CACHE_TTL.normal
+
 
 /*----------------------------------------------------------------------------------*/
 
@@ -77,15 +100,19 @@ const buoyRepo = new NdbcBuoyRepository()
 //  - buoy/point 30 phút: data đo thực tế, đổi liên tục.
 //  - tide/OWM forecast 1 ngày: data 1 ngày cụ thể không đổi trong ngày.
 //  - WeatherBit: humidity 1h, uvIndex 3h (2 field lệch nhịp, 2 timestamp riêng).
-const mongoBuoyRepo = new CachedBuoyWeatherRepository(buoyRepo, new MongoBuoyWeatherCache(), THIRTY_MINUTES)
+const mongoBuoyRepo = new CachedBuoyWeatherRepository(
+    buoyRepo, new MongoBuoyWeatherCache(), ACTIVE_WEATHER_CACHE_TTL.ndbc
+)
 // TẠM TEST: TTL tide hạ còn 2 phút để kiểm tra vòng refetch NOAA có chạy.
 // KHÔI PHỤC `ONE_DAY` sau khi test — prediction 1 ngày không đổi trong ngày.
 const cachedTideRepo = new CachedTideRepository(tideRepo, new MongoTideCache(), TWO_MINUTES)
-const weatherBitRepo = new CachedWeatherBitRepository(new WeatherBitCurrentRepository(), new MongoWeatherBitCache(), ONE_HOUR, THREE_HOURS)
-// TẠM TEST: TTL forecast hạ còn 2 phút để doc cache cũ (ghi TRƯỚC khi có
-// conditionCode/icon) tự hết hạn -> refetch OWM, không phải xoá collection.
-// KHÔI PHỤC `ONE_DAY` sau khi test — forecast 1 ngày không đổi trong ngày.
-const forecastRepo = new CachedOwmForecastRepository(new OwmForecastRepositoryImpl(), new MongoOwmForecastCache(), TWO_MINUTES)
+const weatherBitRepo = new CachedWeatherBitRepository(
+    new WeatherBitCurrentRepository(), new MongoWeatherBitCache(),
+    ACTIVE_WEATHER_CACHE_TTL.weatherBitHumidity, ACTIVE_WEATHER_CACHE_TTL.weatherBitUv
+)
+const forecastRepo = new CachedOwmForecastRepository(
+    new OwmForecastRepositoryImpl(), new MongoOwmForecastCache(), ACTIVE_WEATHER_CACHE_TTL.owmForecast
+)
 const pointWeatherRepo = new CachedPointWeatherRepository(new OwmCurrentRepository(), new MongoPointWeatherCache(), THIRTY_MINUTES)
 
 // Map tile: cache TTL ngắn TRONG RAM (không Mongo — ảnh nặng, không cần bền vững),
