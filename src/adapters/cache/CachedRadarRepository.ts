@@ -11,6 +11,6 @@ export default class CachedRadarRepository implements RadarRepository {
     ) {}
 
     public getRadarInfo (): Promise<RadarInfo> {
-        return cacheAside(this._cache, undefined, this._ttlMs, () => this._source.getRadarInfo())
+        return cacheAside(this._cache, undefined, this._ttlMs, () => this._source.getRadarInfo(), 'rainviewer')
     }
 }

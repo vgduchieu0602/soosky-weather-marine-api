@@ -17,6 +17,6 @@ export default class CachedTideRepository implements TideRepository {
     ) {}
 
     public getTideChart (query: TideQuery): Promise<TideChart> {
-        return cacheAside(this._cache, query, this._ttlMs, () => this._source.getTideChart(query))
+        return cacheAside(this._cache, query, this._ttlMs, () => this._source.getTideChart(query), 'noaa-tide')
     }
 }

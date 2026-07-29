@@ -25,6 +25,7 @@ import GetWeatherTipsUseCase from '../domain/use-cases/tips/GetWeatherTipsUseCas
 import { MAP_LAYERS, MapLayer } from '../domain/entities/MapTile';
 import { PERSONAS, Persona } from '../domain/entities/WeatherTips';
 import RateLimiter from './RateLimiter';
+import { getResponseMeta, runWithResponseTrace } from '../observability/responseTrace';
 
 export {Server as default}
 
@@ -87,6 +88,14 @@ class Server {
 
     private readonly _server = express();
 
+    private _sendJson (res: Response, data: unknown) {
+        return res.json({
+            ok: true,
+            data: formatResponseData(data),
+            meta: getResponseMeta()
+        })
+    }
+
     private readonly routes = [
         ['GET', '/health',
             this._GET_health.bind(this),
@@ -128,6 +137,10 @@ class Server {
         // Parse body JSON (cho POST /weather-tips). Đăng ký trước route; GET
         // không có body nên không ảnh hưởng. Giới hạn size tránh payload lớn bất thường.
         this._server.use(express.json({limit: '64kb'}))
+
+        this._server.use((_req: Request, _res: Response, next: NextFunction) => {
+            runWithResponseTrace(() => next())
+        })
 
         this._server.use((req: Request, _res: Response, next: NextFunction) => {
             // Map tile bùng nổ theo lô (zoom/pan) -> bucket riêng hạn cao; endpoint
@@ -198,7 +211,8 @@ class Server {
             res.status(statusCode).json({
                 ok: false,
                 code,
-                reason: message
+                reason: message,
+                meta: getResponseMeta()
             });
 
             next()
@@ -206,12 +220,7 @@ class Server {
     }
 
     private _GET_health(_req: Request, res: Response):any {
-        return res.json({
-            ok: true,
-            data: {
-                uptime: process.uptime()
-            }
-        })
+        return this._sendJson(res, { uptime: process.uptime() })
     }
 
     private async _GET_tides (req: Request, res: Response) {
@@ -241,10 +250,7 @@ class Server {
 
         const data = await this._useCases.tide.getTideChart.execute({stationId, date, days})
 
-        return res.json({
-            ok: true,
-            data: formatResponseData(data)
-        })
+        return this._sendJson(res, data)
     }
 
     private async _GET_buoys (_req: Request, res: Response) {
@@ -252,10 +258,7 @@ class Server {
         // (bot crawl); DB rỗng -> fallback NDBC + seed nền.
         const data = await this._useCases.buoy.listBuoys.execute()
 
-        return res.json({
-            ok: true,
-            data: formatResponseData(data)
-        })
+        return this._sendJson(res, data)
     }
 
     private async _GET_buoyWeather (req: Request, res: Response) {
@@ -275,10 +278,7 @@ class Server {
 
         const data = await this._useCases.buoy.getBuoyWeatherDetail.execute({buoyId, lat, lon, tideStationId})
 
-        return res.json({
-            ok: true,
-            data: formatResponseData(data)
-        })
+        return this._sendJson(res, data)
     }
 
     private async _GET_pointWeather (req: Request, res: Response) {
@@ -296,10 +296,7 @@ class Server {
 
         const data = await this._useCases.weather.getPointWeatherDetail.execute({lat, lon, tideStationId})
 
-        return res.json({
-            ok: true,
-            data: formatResponseData(data)
-        })
+        return this._sendJson(res, data)
     }
 
     private async _GET_mapTile (req: Request, res: Response) {
@@ -340,10 +337,7 @@ class Server {
 
         const data = await this._useCases.radar.getRadar.execute({lat, lon})
 
-        return res.json({
-            ok: true,
-            data: formatResponseData(data)
-        })
+        return this._sendJson(res, data)
     }
 
     private async _GET_alerts (req: Request, res: Response) {
@@ -360,10 +354,7 @@ class Server {
 
         const data = await this._useCases.alert.getAlerts.execute({lat, lon})
 
-        return res.json({
-            ok: true,
-            data: formatResponseData(data)
-        })
+        return this._sendJson(res, data)
     }
 
     // Smart Weather Tips. Body: { persona, weather }. Validate persona thuộc enum
@@ -392,10 +383,7 @@ class Server {
             throw new UpstreamUnavailableError(`weather tips upstream failed: ${(err as Error)?.message ?? err}`)
         }
 
-        return res.json({
-            ok: true,
-            data: formatResponseData(data)
-        })
+        return this._sendJson(res, data)
     }
 
     public listen(port?: number, hostname?: string): Promise<void> {

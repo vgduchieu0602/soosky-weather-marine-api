@@ -11,6 +11,6 @@ export default class CachedBuoyWeatherRepository implements BuoyWeatherRepositor
     ) {}
 
     public getBuoyWeather (query: BuoyQuery): Promise<BuoyWeather> {
-        return cacheAside(this._cache, query, this._ttlMs, () => this._source.getBuoyWeather(query))
+        return cacheAside(this._cache, query, this._ttlMs, () => this._source.getBuoyWeather(query), 'ndbc')
     }
 }

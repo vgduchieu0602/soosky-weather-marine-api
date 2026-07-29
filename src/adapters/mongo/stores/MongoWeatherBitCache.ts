@@ -9,6 +9,8 @@ export default class MongoWeatherBitCache implements WeatherBitCacheStore {
         const doc = await WeatherBitCacheModel.findOne({ lat: query.lat, lon: query.lon }).lean()
         if (!doc) return null
         return {
+            fetchedAt: doc.fetchedAt ?? null,
+            temperature: doc.temperature,
             humidity: doc.humidity,
             dewPoint: doc.dewPoint,
             humidityUpdatedAt: doc.humidityUpdatedAt,

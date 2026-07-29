@@ -9,6 +9,25 @@ import { BuoyWeatherDetail } from "../../entities/BuoyWeatherDetail";
 import { resilientSource } from "../resilientSource";
 import { resolveTide } from "../resolveTide";
 
+type TemperatureSource = 'ndbc' | 'weatherbit' | 'owm' | null;
+
+function resolveTemperature (
+    ndbcTemperature: number | null | undefined,
+    weatherBitTemperature: number | null | undefined,
+    owmTemperature: number | null | undefined
+): { temperature: number | null; temperatureSource: TemperatureSource } {
+    if (ndbcTemperature !== null && ndbcTemperature !== undefined) {
+        return { temperature: ndbcTemperature, temperatureSource: 'ndbc' };
+    }
+    if (weatherBitTemperature !== null && weatherBitTemperature !== undefined) {
+        return { temperature: weatherBitTemperature, temperatureSource: 'weatherbit' };
+    }
+    if (owmTemperature !== null && owmTemperature !== undefined) {
+        return { temperature: owmTemperature, temperatureSource: 'owm' };
+    }
+    return { temperature: null, temperatureSource: null };
+}
+
 // Query = input do client truyền vào (không phải data lưu trữ) -> khai cạnh use-case.
 export type BuoyWeatherDetailQuery = {
     buoyId: string;
@@ -55,6 +74,7 @@ export default class GetBuoyWeatherDetailUseCase {
 
         // Thứ tự key BẮT BUỘC giống GetPointWeatherDetailUseCase — 2 endpoint dùng
         // chung entity WeatherDetail, FE render bằng cùng 1 component.
+        const resolvedTemperature = resolveTemperature(buoy?.temperature, weatherBit?.temperature, point?.temperature);
         return {
             buoyId: query.buoyId,
             // lat/lon client truyền vào -> luôn có giá trị (Server đã validate).
@@ -66,7 +86,8 @@ export default class GetBuoyWeatherDetailUseCase {
             conditionMain: point?.conditionMain ?? null,
             description: point?.description ?? null,
             icon: point?.icon ?? null,
-            temperature: buoy?.temperature ?? null,
+            temperature: resolvedTemperature.temperature,
+            temperatureSource: resolvedTemperature.temperatureSource,
             windSpeed: buoy?.windSpeed ?? null,
             windDirection: buoy?.windDirection ?? null,
             gust: buoy?.gust ?? null,

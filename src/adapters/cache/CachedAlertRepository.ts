@@ -11,6 +11,6 @@ export default class CachedAlertRepository implements AlertRepository {
     ) {}
 
     public getAlerts (query: AlertQuery): Promise<WeatherAlerts> {
-        return cacheAside(this._cache, query, this._ttlMs, () => this._source.getAlerts(query))
+        return cacheAside(this._cache, query, this._ttlMs, () => this._source.getAlerts(query), 'weatherbit-alerts')
     }
 }

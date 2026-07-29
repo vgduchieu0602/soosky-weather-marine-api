@@ -8,6 +8,7 @@ import WeatherBitRepository, { WeatherBitQuery } from '../../domain/repositories
 import { WeatherBitCurrent } from '../../domain/entities/WeatherBitCurrent'
 import { WeatherBitCacheStore, WeatherBitCacheEntry } from './IWeatherBitCacheStore'
 import { isFresh } from './cacheAside'
+import { recordDataSource } from '../../observability/responseTrace'
 
 export default class CachedWeatherBitRepository implements WeatherBitRepository {
     constructor (
@@ -24,9 +25,11 @@ export default class CachedWeatherBitRepository implements WeatherBitRepository 
         const uvFresh = !!entry && isFresh(entry.uvUpdatedAt, this._uvTtlMs)
 
         if (entry && humidityFresh && uvFresh) {
+            recordDataSource({ source: 'weatherbit', status: 'cache', dataFetchedAt: entry.fetchedAt })
             return {
                 lat: query.lat,
                 lon: query.lon,
+                temperature: entry.temperature,
                 humidity: entry.humidity,
                 dewPoint: entry.dewPoint,
                 uvIndex: entry.uvIndex,
@@ -34,15 +37,26 @@ export default class CachedWeatherBitRepository implements WeatherBitRepository 
             }
         }
 
-        const fresh = await this._source.getWeatherBitCurrent(query)
+        let fresh: WeatherBitCurrent
+        try {
+            fresh = await this._source.getWeatherBitCurrent(query)
+        } catch (err) {
+            recordDataSource({ source: 'weatherbit', status: 'unavailable', dataFetchedAt: null })
+            throw err
+        }
+        const fetchedAt = new Date().toISOString()
+        recordDataSource({ source: 'weatherbit', status: 'upstream', dataFetchedAt: fetchedAt })
 
         const patch: Partial<WeatherBitCacheEntry> = {}
+        const temperature = humidityFresh ? entry!.temperature : fresh.temperature
         const humidity = humidityFresh ? entry!.humidity : fresh.humidity
         const dewPoint = humidityFresh ? entry!.dewPoint : fresh.dewPoint
         const humidityUpdatedAt = humidityFresh ? entry!.humidityUpdatedAt : fresh.updatedAt
         const uvIndex = uvFresh ? entry!.uvIndex : fresh.uvIndex
 
         if (!humidityFresh) {
+            patch.fetchedAt = fetchedAt
+            patch.temperature = fresh.temperature
             patch.humidity = fresh.humidity
             patch.dewPoint = fresh.dewPoint
             patch.humidityUpdatedAt = fresh.updatedAt
@@ -57,6 +71,7 @@ export default class CachedWeatherBitRepository implements WeatherBitRepository 
         return {
             lat: query.lat,
             lon: query.lon,
+            temperature,
             humidity,
             dewPoint,
             uvIndex,
