@@ -11,6 +11,6 @@ export default class CachedPointWeatherRepository implements PointWeatherReposit
     ) {}
 
     public getPointWeather (query: PointWeatherQuery): Promise<PointWeather> {
-        return cacheAside(this._cache, query, this._ttlMs, () => this._source.getPointWeather(query))
+        return cacheAside(this._cache, query, this._ttlMs, () => this._source.getPointWeather(query), 'owm-current')
     }
 }

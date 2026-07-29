@@ -8,6 +8,21 @@ import { PointWeatherDetail } from "../../entities/PointWeatherDetail";
 import { resilientSource } from "../resilientSource";
 import { resolveTide } from "../resolveTide";
 
+type TemperatureSource = 'weatherbit' | 'owm' | null;
+
+function resolveTemperature (
+    weatherBitTemperature: number | null | undefined,
+    owmTemperature: number | null | undefined
+): { temperature: number | null; temperatureSource: TemperatureSource } {
+    if (weatherBitTemperature !== null && weatherBitTemperature !== undefined) {
+        return { temperature: weatherBitTemperature, temperatureSource: 'weatherbit' };
+    }
+    if (owmTemperature !== null && owmTemperature !== undefined) {
+        return { temperature: owmTemperature, temperatureSource: 'owm' };
+    }
+    return { temperature: null, temperatureSource: null };
+}
+
 // Query = input do client truyền vào (không phải data lưu trữ) -> khai cạnh use-case.
 export type PointWeatherDetailQuery = {
     lat: number;
@@ -49,6 +64,7 @@ export default class GetPointWeatherDetailUseCase {
 
         // Thứ tự key BẮT BUỘC giống GetBuoyWeatherDetailUseCase — 2 endpoint dùng
         // chung entity WeatherDetail, FE render bằng cùng 1 component.
+        const resolvedTemperature = resolveTemperature(weatherBit?.temperature, point?.temperature);
         return {
             // Endpoint này KHÔNG hỏi theo phao -> luôn null -> HTTP trả "n/a".
             // Phao dùng để bù waveHeight/waterTemp nằm ở `buoyStationId`.
@@ -59,7 +75,8 @@ export default class GetPointWeatherDetailUseCase {
             conditionMain: point?.conditionMain ?? null,
             description: point?.description ?? null,
             icon: point?.icon ?? null,
-            temperature: point?.temperature ?? null,
+            temperature: resolvedTemperature.temperature,
+            temperatureSource: resolvedTemperature.temperatureSource,
             windSpeed: point?.windSpeed ?? null,
             windDirection: point?.windDirection ?? null,
             gust: point?.gust ?? null,

@@ -25,6 +25,7 @@ export default class WeatherBitCurrentRepository implements WeatherBitRepository
             lat: query.lat,
             lon: query.lon,
             
+            temperature: d.temp ?? null,
             uvIndex: d.uv ?? null,
             humidity: d.rh ?? null,
             dewPoint: d.dewpt ?? null,

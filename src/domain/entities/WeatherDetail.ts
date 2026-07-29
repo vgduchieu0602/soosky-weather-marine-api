@@ -34,6 +34,7 @@ export interface WeatherDetail {
 
     // --- số đo hiện tại ---
     temperature: number | null;
+    temperatureSource: 'ndbc' | 'weatherbit' | 'owm' | null;
     windSpeed: number | null;
     windDirection: number | null;
     gust: number | null;

@@ -5,6 +5,7 @@
 export interface WeatherBitCurrent {
     lat: number;
     lon: number;
+    temperature: number | null;
     uvIndex: number | null;  // 0-11+, nullable vì WeatherBit có thể thiếu data tuỳ trạm nguồn
     humidity: number | null; // %, nullable cùng lý do
     dewPoint: number | null; // °C, nullable cùng lý do

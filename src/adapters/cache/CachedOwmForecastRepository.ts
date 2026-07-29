@@ -11,6 +11,6 @@ export default class CachedOwmForecastRepository implements OwmForecastRepositor
     ) {}
 
     public getForecast (query: OwmForecastQuery): Promise<OwmForecast> {
-        return cacheAside(this._cache, query, this._ttlMs, () => this._source.getForecast(query))
+        return cacheAside(this._cache, query, this._ttlMs, () => this._source.getForecast(query), 'owm-forecast')
     }
 }

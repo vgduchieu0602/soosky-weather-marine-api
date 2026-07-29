@@ -7,6 +7,8 @@
 import { WeatherBitQuery } from '../../domain/repositories/IWeatherBitRepository';
 
 export interface WeatherBitCacheEntry {
+    fetchedAt: string | null;
+    temperature: number | null;
     humidity: number | null;
     dewPoint: number | null;    // cùng API call với humidity -> dùng chung humidityUpdatedAt
     humidityUpdatedAt: string;  //ISO UTC — lúc humidity/dewPoint lấy gần nhất
