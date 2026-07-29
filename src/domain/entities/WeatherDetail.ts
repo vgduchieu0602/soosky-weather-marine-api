@@ -21,6 +21,7 @@ import {OwmForecast} from './OwmForecast';
 export interface WeatherDetail {
     // --- định danh vị trí ---
     buoyId: string | null;
+    buoyName: string | null;
     lat: number | null;
     lon: number | null;
 

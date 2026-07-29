@@ -69,6 +69,7 @@ export default class GetPointWeatherDetailUseCase {
             // Endpoint này KHÔNG hỏi theo phao -> luôn null -> HTTP trả "n/a".
             // Phao dùng để bù waveHeight/waterTemp nằm ở `buoyStationId`.
             buoyId: null,
+            buoyName: null,
             lat: query.lat,
             lon: query.lon,
             conditionCode: point?.conditionCode ?? null,

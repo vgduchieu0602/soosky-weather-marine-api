@@ -20,6 +20,7 @@ const forecastRepo = {
 } as any
 
 const stationRepo = {
+    findByBuoyId: async () => null,
     seedIfAbsent: async () => undefined
 } as any
 
@@ -102,6 +103,25 @@ test('buoy keeps measured NDBC air temperature ahead of coordinate sources', asy
 
     assert.equal(detail.temperature, 28)
     assert.equal(detail.temperatureSource, 'ndbc')
+})
+
+test('buoy weather includes the station name from buoy metadata', async () => {
+    const useCase = new GetBuoyWeatherDetailUseCase(
+        { getBuoyWeather: async () => buoyWeather(28) } as any,
+        tideRepo,
+        { getWeatherBitCurrent: async () => weatherBit(30) } as any,
+        forecastRepo,
+        locator,
+        {
+            findByBuoyId: async () => ({ buoyId: '41002', name: 'South Hatteras', lat: 31.76, lon: -74.84 }),
+            seedIfAbsent: async () => undefined
+        } as any,
+        { getPointWeather: async () => pointWeather(31) } as any
+    )
+
+    const detail = await useCase.execute({ buoyId: '41002', lat: 10.15, lon: 106.15 }) as any
+
+    assert.equal(detail.buoyName, 'South Hatteras')
 })
 
 test('point weather prefers Weatherbit temperature before OpenWeatherMap', async () => {
