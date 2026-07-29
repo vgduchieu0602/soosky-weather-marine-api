@@ -54,7 +54,7 @@ export default class GetBuoyWeatherDetailUseCase {
 
         // MỖI nguồn bọc resilientSource: lỗi -> null (partial) + log, KHÔNG 500.
         // tide: resolveTide (client truyền hoặc thử vài trạm gần nhất, lấy trạm đầu có data).
-        const [buoy, point, weatherBit, forecast, tideRes] = await Promise.all([
+        const [buoy, point, weatherBit, forecast, tideRes, station] = await Promise.all([
             resilientSource('buoy', `buoy:${query.buoyId}`,
                 () => this._buoyRepo.getBuoyWeather({ buoyId: query.buoyId })),
             resilientSource('current', `owmcur:${query.lat},${query.lon}`,
@@ -64,6 +64,11 @@ export default class GetBuoyWeatherDetailUseCase {
             resilientSource('forecast', `fcst:${query.lat},${query.lon}`,
                 () => this._forecastRepo.getForecast({ lat: query.lat, lon: query.lon })),
             resolveTide(this._tideRepo, this._locator, query.tideStationId, query.lat, query.lon, today),
+            this._stationRepo.findByBuoyId(query.buoyId)
+                .catch((err) => {
+                    console.warn(`[buoys] metadata lookup failed: ${(err as Error)?.message ?? err}`)
+                    return null
+                }),
         ]);
 
         // Lazy seed vị trí buoy vào "buoys" nếu chưa có (TH3) — best-effort,
@@ -77,6 +82,7 @@ export default class GetBuoyWeatherDetailUseCase {
         const resolvedTemperature = resolveTemperature(buoy?.temperature, weatherBit?.temperature, point?.temperature);
         return {
             buoyId: query.buoyId,
+            buoyName: station?.name ?? null,
             // lat/lon client truyền vào -> luôn có giá trị (Server đã validate).
             lat: query.lat,
             lon: query.lon,

@@ -20,6 +20,14 @@ export default class MongoBuoyStationStore implements BuoyStationRepository {
         return docs.map((d) => ({ buoyId: d.buoyId, name: d.name, lat: d.lat, lon: d.lon }))
     }
 
+    public async findByBuoyId(buoyId: string): Promise<BuoyStation | null> {
+        const doc = await BuoyStationModel
+            .findOne({ buoyId }, { buoyId: 1, name: 1, lat: 1, lon: 1 })
+            .lean()
+
+        return doc ? { buoyId: doc.buoyId, name: doc.name, lat: doc.lat, lon: doc.lon } : null
+    }
+
     public async seedIfAbsent(station: BuoyStation): Promise<void> {
         const now = new Date()
         // $setOnInsert only -> chỉ ghi khi CHƯA có buoyId; không đè name/lat/lon
