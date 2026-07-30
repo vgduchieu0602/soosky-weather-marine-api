@@ -23,7 +23,14 @@
         "waterTemp": {"type": ["number", "null"], "description": "°C"},
         "atmospherePressure": {"type": "number"},
         "updatedAt": {"type": "string", "format": "date-time"},
-        "visibility": {"type": ["number", "null"]},
+        "visibility": {
+          "oneOf": [
+            {"type": "number"},
+            {"type": "null"},
+            {"type": "string", "enum": ["n/a", "N/A"]}
+          ],
+          "description": "Visibility measurement, or n/a when the source reports it unavailable."
+        },
         "uvIndex": {"type": "number", "minimum": 0},
         "humidity": {"type": ["number", "null"], "minimum": 0, "maximum": 100},
         "tideChart": {
@@ -40,7 +47,13 @@
                 "required": ["time", "height"],
                 "properties": {
                   "time": {"type": "string", "format": "date-time"},
-                  "height": {"type": "number", "description": "meters"}
+                  "height": {
+                    "oneOf": [
+                      {"type": "number"},
+                      {"type": "string", "pattern": "^[+-]?(?:\\d+(?:\\.\\d*)?|\\.\\d+)(?:[eE][+-]?\\d+)?$"}
+                    ],
+                    "description": "meters; numeric strings from tide sources are accepted."
+                  }
                 }
               }
             }
