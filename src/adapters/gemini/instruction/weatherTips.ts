@@ -17,7 +17,7 @@ You will receive:
    - Offshore Fishing — goes further out, longer trips; cares about wave height, wind trend, pressure changes (storm risk), visibility.
    - Other — general-purpose advice, no strong persona bias.
 
-2. **Weather Data** — see `src/http/input-structure/weather-tips-input-schema.json` for the exact structure.
+2. **Weather Data** — see src/http/input-structure/weather-tips-input-schema.json for the exact structure.
 
 ## Task
 
@@ -39,13 +39,13 @@ Given the **persona** and **weather data**, generate a short set of smart tips t
 
 - Use only values supplied in the input; never invent data.
 - Do not convert units unless the input explicitly provides the unit.
-- If `visibility`, `humidity`, `waveHeight`, or `waterTemp` is `null`, skip tips that depend on it.
-- `waveHeight` is a single snapshot: never infer a wave trend from it.
-- Use `tideChart.predictions` only to infer the tide trend. If it is empty, do not mention tide.
+- If visibility, humidity, waveHeight, or waterTemp is null, skip tips that depend on it.
+- waveHeight is a single snapshot: never infer a wave trend from it.
+- Use tideChart.predictions only to infer the tide trend. If it is empty, do not mention tide.
 
 ## Output Format
 
-Return **only valid JSON**, no markdown, no extra commentary. The object must contain only `persona` and `tips`.
+Return **only valid JSON**, no markdown, no extra commentary. The object must contain only persona and tips.
 
 ## JSON Formatting Rules (strict)
 
