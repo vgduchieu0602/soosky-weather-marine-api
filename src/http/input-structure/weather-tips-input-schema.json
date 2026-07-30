@@ -1,0 +1,52 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["persona", "weather"],
+  "properties": {
+    "persona": {
+      "type": "string",
+      "enum": ["Traveler", "Water Sports", "Coastal Captain", "Offshore Fishing", "Other"]
+    },
+    "weather": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "temperature", "windSpeed", "windDirection", "gust", "waveHeight", "waterTemp",
+        "atmospherePressure", "updatedAt", "visibility", "uvIndex", "humidity", "tideChart"
+      ],
+      "properties": {
+        "temperature": {"type": "number", "description": "°C"},
+        "windSpeed": {"type": "number", "description": "Use the supplied unit without conversion."},
+        "windDirection": {"oneOf": [{"type": "number", "minimum": 0, "maximum": 360}, {"type": "string"}]},
+        "gust": {"type": "number"},
+        "waveHeight": {"type": ["number", "null"], "description": "meters"},
+        "waterTemp": {"type": ["number", "null"], "description": "°C"},
+        "atmospherePressure": {"type": "number"},
+        "updatedAt": {"type": "string", "format": "date-time"},
+        "visibility": {"type": ["number", "null"]},
+        "uvIndex": {"type": "number", "minimum": 0},
+        "humidity": {"type": ["number", "null"], "minimum": 0, "maximum": 100},
+        "tideChart": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["stationId", "predictions"],
+          "properties": {
+            "stationId": {"type": "string", "minLength": 1},
+            "predictions": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["time", "height"],
+                "properties": {
+                  "time": {"type": "string", "format": "date-time"},
+                  "height": {"type": "number", "description": "meters"}
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

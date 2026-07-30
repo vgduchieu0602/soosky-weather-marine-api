@@ -1,6 +1,5 @@
 {
   "type": "object",
-  "propertyOrdering": ["persona", "tips"],
   "properties": {
     "persona": {
       "type": "string",

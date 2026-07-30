@@ -23,7 +23,7 @@ import GetRadarUseCase from '../domain/use-cases/radar/GetRadarUseCase';
 import GetAlertsUseCase from '../domain/use-cases/alert/GetAlertsUseCase';
 import GetWeatherTipsUseCase from '../domain/use-cases/tips/GetWeatherTipsUseCase';
 import { MAP_LAYERS, MapLayer } from '../domain/entities/MapTile';
-import { PERSONAS, Persona } from '../domain/entities/WeatherTips';
+import { PERSONAS, Persona, validateWeatherTipsWeather } from '../domain/entities/WeatherTips';
 import RateLimiter from './RateLimiter';
 import { getResponseMeta, runWithResponseTrace } from '../observability/responseTrace';
 
@@ -368,9 +368,8 @@ class Server {
         if (!(PERSONAS as readonly string[]).includes(persona)) {
             throw new ClientError(`'persona' must be one of: ${PERSONAS.join(', ')}`)
         }
-        if (!weather || typeof weather !== 'object') {
-            throw new ClientError("Body field 'weather' (object) is required.")
-        }
+        const weatherValidationError = validateWeatherTipsWeather(weather)
+        if (weatherValidationError) throw new ClientError(weatherValidationError)
 
         // Gemini lỗi/quota/safety-block -> 502, không phải 500.
         let data;
