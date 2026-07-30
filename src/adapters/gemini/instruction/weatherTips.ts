@@ -31,7 +31,7 @@ Given the **persona** and **weather data**, generate a short set of smart tips t
    - Traveler: focus on comfort (UV index, temperature, general "is it a good beach day").
    - Other: balanced general summary covering the most notable conditions.
 3. **Tide vs wave comparison** — "waveHeight" is a single current snapshot (no trend of its own). Use "tideChart.predictions" to read the tide trend (rising, falling, or turning at high/low) over the next several hours, and combine that with the current "waveHeight" to give more useful advice than either alone (e.g. "Tide rising toward high at 14:00, with 1.8m waves — expect choppier conditions near that window"). If "tideChart" or its "predictions" is empty or missing, give advice based on "waveHeight" alone without referencing tide.
-4. **Handles missing data gracefully** — if "visibility", "humidity", "waveHeight", or "waterTemp" is "null", skip any tip that would depend on it rather than guessing or stating "no data."
+4. **Handles missing data gracefully** — if "visibility", "humidity", "waveHeight", or "waterTemp" is "null" or the source placeholder "n/a", skip any tip that would depend on it rather than guessing or stating "no data." Tide prediction heights can arrive as numeric strings; interpret those as measurements in the supplied unit.
 5. **Is concise** — each tip is a short, plain-language, actionable sentence. Max 100 characters per tip, including spaces. No jargon overload, no repeating the same factor across multiple tips.
 6. **Returns 2-4 tips**, ordered from most to least important for that persona.
 
@@ -39,7 +39,8 @@ Given the **persona** and **weather data**, generate a short set of smart tips t
 
 - Use only values supplied in the input; never invent data.
 - Do not convert units unless the input explicitly provides the unit.
-- If visibility, humidity, waveHeight, or waterTemp is null, skip tips that depend on it.
+- If visibility, humidity, waveHeight, or waterTemp is null or "n/a", skip tips that depend on it.
+- Treat numeric strings in tideChart.predictions[].height as numeric measurements; do not treat arbitrary text as a measurement.
 - waveHeight is a single snapshot: never infer a wave trend from it.
 - Use tideChart.predictions only to infer the tide trend. If it is empty, do not mention tide.
 

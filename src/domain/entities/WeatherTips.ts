@@ -20,7 +20,7 @@ export type Persona = (typeof PERSONAS)[number];
 // field null thay vì đoán. Endpoint validate đúng contract trước khi gọi Gemini.
 export interface WeatherTipsTidePrediction {
     time: string;
-    height: number;
+    height: number | string;
 }
 
 export interface WeatherTipsTideChart {
@@ -37,7 +37,7 @@ export interface WeatherTipsWeather {
     waterTemp: number | null;
     atmospherePressure: number;
     updatedAt: string;
-    visibility: number | null;
+    visibility: number | null | string;
     uvIndex: number;
     humidity: number | null;
     tideChart: WeatherTipsTideChart;
@@ -66,6 +66,20 @@ function hasOnlyFields (value: Record<string, unknown>, fields: readonly string[
 
 function isIsoTimestamp (value: string): boolean {
     return !Number.isNaN(Date.parse(value));
+}
+
+function isUnavailableMeasurement (value: unknown): boolean {
+    return typeof value === 'string' && value.trim().toLowerCase() === 'n/a';
+}
+
+function isFiniteNumberOrNumericString (value: unknown): boolean {
+    if (typeof value === 'number') return Number.isFinite(value);
+    if (typeof value !== 'string') return false;
+
+    const numericValue = value.trim();
+    return numericValue.length > 0
+        && /^[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?$/.test(numericValue)
+        && Number.isFinite(Number(numericValue));
 }
 
 /** Validates the exact weather payload accepted by POST /api/v1/weather-tips. */
@@ -98,11 +112,15 @@ export function validateWeatherTipsWeather (value: unknown): string | null {
         return "Body field 'weather.updatedAt' must be an ISO 8601 timestamp."
     }
 
-    const nullableNumberFields = ['waveHeight', 'waterTemp', 'visibility', 'humidity'] as const;
+    const nullableNumberFields = ['waveHeight', 'waterTemp', 'humidity'] as const;
     for (const field of nullableNumberFields) {
         if (value[field] !== null && (typeof value[field] !== 'number' || !Number.isFinite(value[field]))) {
             return `Body field 'weather.${field}' must be a number or null.`
         }
+    }
+    if (value.visibility !== null && !isFiniteNumberOrNumericString(value.visibility)
+        && !isUnavailableMeasurement(value.visibility)) {
+        return "Body field 'weather.visibility' must be a number, numeric string, 'n/a', or null."
     }
     if (typeof value.humidity === 'number' && (value.humidity < 0 || value.humidity > 100)) {
         return "Body field 'weather.humidity' must be between 0 and 100."
@@ -128,8 +146,8 @@ export function validateWeatherTipsWeather (value: unknown): string | null {
         if (typeof prediction.time !== 'string' || !isIsoTimestamp(prediction.time)) {
             return `Body field '${path}.time' must be an ISO 8601 timestamp.`
         }
-        if (typeof prediction.height !== 'number' || !Number.isFinite(prediction.height)) {
-            return `Body field '${path}.height' must be a number.`
+        if (!isFiniteNumberOrNumericString(prediction.height)) {
+            return `Body field '${path}.height' must be a number or numeric string.`
         }
     }
 
