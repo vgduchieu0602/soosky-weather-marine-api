@@ -8,7 +8,7 @@
 
 import {GoogleGenAI, ThinkingLevel} from '@google/genai'
 import WeatherAdvisorRepository, {WeatherTipsQuery} from '../../domain/repositories/IWeatherAdvisorRepository'
-import {WeatherTips} from '../../domain/entities/WeatherTips'
+import {WeatherTips, validateWeatherTipsOutput} from '../../domain/entities/WeatherTips'
 import {WEATHER_TIPS_INSTRUCTION} from './instruction/weatherTips'
 import WEATHER_TIPS_SCHEMA from './output-structure/weather-tips-schema.json' with {type: 'json'}
 
@@ -65,9 +65,8 @@ export default class GeminiWeatherAdvisor implements WeatherAdvisorRepository {
         }
 
         // Guard: responseSchema đã ép, nhưng chốt lại tips là mảng không rỗng.
-        if (!parsed || !Array.isArray(parsed.tips) || parsed.tips.length === 0) {
-            throw new Error('Gemini response missing tips')
-        }
+        const outputValidationError = validateWeatherTipsOutput(parsed)
+        if (outputValidationError) throw new Error(outputValidationError)
 
         // persona luôn echo lại đúng input (không tin tưởng model đổi enum).
         return {persona: query.persona, tips: parsed.tips}
