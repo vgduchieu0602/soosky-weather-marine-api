@@ -14,6 +14,7 @@ export const PERSONAS = [
 ] as const;
 
 export type Persona = (typeof PERSONAS)[number];
+export type UnavailableValue = 'n/a' | 'N/A';
 
 // Weather đầu vào — client gửi lên (thường lấy từ /weather hoặc /buoys/.../weather
 // mà FE đã có sẵn). Field nullable đúng theo schema; Gemini tự bỏ tip phụ thuộc
@@ -40,7 +41,7 @@ export interface WeatherTipsWeather {
     visibility: number | null | string;
     uvIndex: number;
     humidity: number | null;
-    tideChart: WeatherTipsTideChart;
+    tideChart: WeatherTipsTideChart | null | UnavailableValue;
 }
 
 export interface WeatherTips {
@@ -87,8 +88,8 @@ export function validateWeatherTipsWeather (value: unknown): string | null {
     if (!isObject(value)) return "Body field 'weather' (object) is required."
     if (!hasOnlyFields(value, WEATHER_FIELDS)) return "Body field 'weather' contains unsupported fields."
 
-    if (!('tideChart' in value) || !isObject(value.tideChart)) {
-        return "Body field 'weather.tideChart' (object) is required."
+    if (!('tideChart' in value)) {
+        return "Body field 'weather.tideChart' (object, 'n/a', or null) is required."
     }
 
     for (const field of WEATHER_FIELDS) {
@@ -126,28 +127,33 @@ export function validateWeatherTipsWeather (value: unknown): string | null {
         return "Body field 'weather.humidity' must be between 0 and 100."
     }
 
-    if (!hasOnlyFields(value.tideChart, TIDE_CHART_FIELDS)) {
-        return "Body field 'weather.tideChart' contains unsupported fields."
-    }
-    if (typeof value.tideChart.stationId !== 'string' || !value.tideChart.stationId) {
-        return "Body field 'weather.tideChart.stationId' must be a non-empty string."
-    }
-    if (!Array.isArray(value.tideChart.predictions)) {
-        return "Body field 'weather.tideChart.predictions' must be an array."
-    }
+    if (value.tideChart !== null && !isUnavailableMeasurement(value.tideChart)) {
+        if (!isObject(value.tideChart)) {
+            return "Body field 'weather.tideChart' must be an object, 'n/a', or null."
+        }
+        if (!hasOnlyFields(value.tideChart, TIDE_CHART_FIELDS)) {
+            return "Body field 'weather.tideChart' contains unsupported fields."
+        }
+        if (typeof value.tideChart.stationId !== 'string' || !value.tideChart.stationId) {
+            return "Body field 'weather.tideChart.stationId' must be a non-empty string."
+        }
+        if (!Array.isArray(value.tideChart.predictions)) {
+            return "Body field 'weather.tideChart.predictions' must be an array."
+        }
 
-    for (let index = 0; index < value.tideChart.predictions.length; index++) {
-        const prediction = value.tideChart.predictions[index];
-        const path = `weather.tideChart.predictions[${index}]`;
-        if (!isObject(prediction)) return `Body field '${path}' must be an object.`
-        if (!hasOnlyFields(prediction, TIDE_PREDICTION_FIELDS)) {
-            return `Body field '${path}' contains unsupported fields.`
-        }
-        if (typeof prediction.time !== 'string' || !isIsoTimestamp(prediction.time)) {
-            return `Body field '${path}.time' must be an ISO 8601 timestamp.`
-        }
-        if (!isFiniteNumberOrNumericString(prediction.height)) {
-            return `Body field '${path}.height' must be a number or numeric string.`
+        for (let index = 0; index < value.tideChart.predictions.length; index++) {
+            const prediction = value.tideChart.predictions[index];
+            const path = `weather.tideChart.predictions[${index}]`;
+            if (!isObject(prediction)) return `Body field '${path}' must be an object.`
+            if (!hasOnlyFields(prediction, TIDE_PREDICTION_FIELDS)) {
+                return `Body field '${path}' contains unsupported fields.`
+            }
+            if (typeof prediction.time !== 'string' || !isIsoTimestamp(prediction.time)) {
+                return `Body field '${path}.time' must be an ISO 8601 timestamp.`
+            }
+            if (!isFiniteNumberOrNumericString(prediction.height)) {
+                return `Body field '${path}.height' must be a number or numeric string.`
+            }
         }
     }
 

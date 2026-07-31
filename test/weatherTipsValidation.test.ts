@@ -24,6 +24,14 @@ test('accepts a weather-tips payload matching the tideChart contract', () => {
     assert.equal(validateWeatherTipsWeather(validWeather), null)
 })
 
+test('accepts a weather-tips payload without tide data', () => {
+    assert.equal(validateWeatherTipsWeather({...validWeather, tideChart: null}), null)
+})
+
+test('accepts a weather-tips payload with an unavailable tide chart placeholder', () => {
+    assert.equal(validateWeatherTipsWeather({...validWeather, tideChart: 'n/a'}), null)
+})
+
 test('accepts unavailable visibility and numeric-string tide heights', () => {
     const weatherWithSourceStringValues = {
         temperature: 17.3,
@@ -54,7 +62,7 @@ test('requires tideChart in a weather-tips payload', () => {
 
     assert.equal(
         validateWeatherTipsWeather(weatherWithoutTideChart),
-        "Body field 'weather.tideChart' (object) is required."
+        "Body field 'weather.tideChart' (object, 'n/a', or null) is required."
     )
 })
 
