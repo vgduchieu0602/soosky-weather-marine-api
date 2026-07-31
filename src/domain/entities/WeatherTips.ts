@@ -19,9 +19,14 @@ export type UnavailableValue = 'n/a' | 'N/A';
 // Weather đầu vào — client gửi lên (thường lấy từ /weather hoặc /buoys/.../weather
 // mà FE đã có sẵn). Field nullable đúng theo schema; Gemini tự bỏ tip phụ thuộc
 // field null thay vì đoán. Endpoint validate đúng contract trước khi gọi Gemini.
+// Upstream có thể trả số dưới dạng chuỗi ("12.4") hoặc placeholder "n/a" -> chấp
+// nhận cả hai. Field nullable vẫn giữ null nguyên nghĩa "không có dữ liệu".
+export type Measurement = number | string;
+export type NullableMeasurement = number | string | null;
+
 export interface WeatherTipsTidePrediction {
     time: string;
-    height: number | string;
+    height: Measurement;
 }
 
 export interface WeatherTipsTideChart {
@@ -30,17 +35,17 @@ export interface WeatherTipsTideChart {
 }
 
 export interface WeatherTipsWeather {
-    temperature: number;
-    windSpeed: number;
-    windDirection: number | string;
-    gust: number;
-    waveHeight: number | null;
-    waterTemp: number | null;
-    atmospherePressure: number;
+    temperature: Measurement;
+    windSpeed: Measurement;
+    windDirection: Measurement;
+    gust: Measurement;
+    waveHeight: NullableMeasurement;
+    waterTemp: NullableMeasurement;
+    atmospherePressure: Measurement;
     updatedAt: string;
-    visibility: number | null | string;
-    uvIndex: number;
-    humidity: number | null;
+    visibility: NullableMeasurement;
+    uvIndex: Measurement;
+    humidity: NullableMeasurement;
     tideChart: WeatherTipsTideChart | null;
 }
 
@@ -83,6 +88,23 @@ function isFiniteNumberOrNumericString (value: unknown): boolean {
         && Number.isFinite(Number(numericValue));
 }
 
+// Đo đạc hợp lệ = số, chuỗi số ("12.4"), hoặc placeholder "n/a".
+function isMeasurement (value: unknown): boolean {
+    return isFiniteNumberOrNumericString(value) || isUnavailableMeasurement(value)
+}
+
+// Trả số để check range; null khi giá trị là "n/a" (không có gì để check).
+function toNumericMeasurement (value: unknown): number | null {
+    if (typeof value === 'number') return value
+    if (typeof value === 'string' && isFiniteNumberOrNumericString(value)) return Number(value)
+    return null
+}
+
+function isInRange (value: unknown, min: number, max: number): boolean {
+    const numericValue = toNumericMeasurement(value);
+    return numericValue === null || (numericValue >= min && numericValue <= max)
+}
+
 /** Validates the exact weather payload accepted by POST /api/v1/weather-tips. */
 export function validateWeatherTipsWeather (value: unknown): string | null {
     if (!isObject(value)) return "Body field 'weather' (object) is required."
@@ -96,34 +118,34 @@ export function validateWeatherTipsWeather (value: unknown): string | null {
         if (!(field in value)) return `Body field 'weather.${field}' is required.`
     }
 
-    const numberFields = ['temperature', 'windSpeed', 'gust', 'atmospherePressure', 'uvIndex'] as const;
-    for (const field of numberFields) {
-        if (typeof value[field] !== 'number' || !Number.isFinite(value[field])) {
-            return `Body field 'weather.${field}' must be a number.`
+    const measurementFields = ['temperature', 'windSpeed', 'gust', 'atmospherePressure', 'uvIndex'] as const;
+    for (const field of measurementFields) {
+        if (!isMeasurement(value[field])) {
+            return `Body field 'weather.${field}' must be a number, numeric string, or 'n/a'.`
         }
     }
 
+    // windDirection nhận thêm chuỗi la bàn ("NE") ngoài số/chuỗi số.
     if (typeof value.windDirection !== 'number' && typeof value.windDirection !== 'string') {
         return "Body field 'weather.windDirection' must be a number or compass string."
     }
-    if (typeof value.windDirection === 'number' && (value.windDirection < 0 || value.windDirection > 360)) {
+    if (typeof value.windDirection === 'number' && !Number.isFinite(value.windDirection)) {
+        return "Body field 'weather.windDirection' must be a number or compass string."
+    }
+    if (!isInRange(value.windDirection, 0, 360)) {
         return "Body field 'weather.windDirection' must be between 0 and 360."
     }
     if (typeof value.updatedAt !== 'string' || !isIsoTimestamp(value.updatedAt)) {
         return "Body field 'weather.updatedAt' must be an ISO 8601 timestamp."
     }
 
-    const nullableNumberFields = ['waveHeight', 'waterTemp', 'humidity'] as const;
-    for (const field of nullableNumberFields) {
-        if (value[field] !== null && (typeof value[field] !== 'number' || !Number.isFinite(value[field]))) {
-            return `Body field 'weather.${field}' must be a number or null.`
+    const nullableMeasurementFields = ['waveHeight', 'waterTemp', 'humidity', 'visibility'] as const;
+    for (const field of nullableMeasurementFields) {
+        if (value[field] !== null && !isMeasurement(value[field])) {
+            return `Body field 'weather.${field}' must be a number, numeric string, 'n/a', or null.`
         }
     }
-    if (value.visibility !== null && !isFiniteNumberOrNumericString(value.visibility)
-        && !isUnavailableMeasurement(value.visibility)) {
-        return "Body field 'weather.visibility' must be a number, numeric string, 'n/a', or null."
-    }
-    if (typeof value.humidity === 'number' && (value.humidity < 0 || value.humidity > 100)) {
+    if (!isInRange(value.humidity, 0, 100)) {
         return "Body field 'weather.humidity' must be between 0 and 100."
     }
 

@@ -1,6 +1,29 @@
 {
   "type": "object",
   "additionalProperties": false,
+  "$defs": {
+    "numericString": {
+      "type": "string",
+      "pattern": "^[+-]?(?:\\d+(?:\\.\\d*)?|\\.\\d+)(?:[eE][+-]?\\d+)?$"
+    },
+    "measurement": {
+      "oneOf": [
+        {"type": "number"},
+        {"$ref": "#/$defs/numericString"},
+        {"type": "string", "enum": ["n/a", "N/A"]}
+      ],
+      "description": "A measurement as a number, a numeric string, or the placeholder n/a when the source reports it unavailable."
+    },
+    "nullableMeasurement": {
+      "oneOf": [
+        {"type": "number"},
+        {"$ref": "#/$defs/numericString"},
+        {"type": "string", "enum": ["n/a", "N/A"]},
+        {"type": "null"}
+      ],
+      "description": "Same as measurement, plus null when the field is absent upstream."
+    }
+  },
   "required": ["persona", "weather"],
   "properties": {
     "persona": {
@@ -15,24 +38,20 @@
         "atmospherePressure", "updatedAt", "visibility", "uvIndex", "humidity", "tideChart"
       ],
       "properties": {
-        "temperature": {"type": "number", "description": "°C"},
-        "windSpeed": {"type": "number", "description": "Use the supplied unit without conversion."},
+        "temperature": {"$ref": "#/$defs/measurement", "description": "°C"},
+        "windSpeed": {"$ref": "#/$defs/measurement", "description": "Use the supplied unit without conversion."},
         "windDirection": {"oneOf": [{"type": "number", "minimum": 0, "maximum": 360}, {"type": "string"}]},
-        "gust": {"type": "number"},
-        "waveHeight": {"type": ["number", "null"], "description": "meters"},
-        "waterTemp": {"type": ["number", "null"], "description": "°C"},
-        "atmospherePressure": {"type": "number"},
+        "gust": {"$ref": "#/$defs/measurement"},
+        "waveHeight": {"$ref": "#/$defs/nullableMeasurement", "description": "meters"},
+        "waterTemp": {"$ref": "#/$defs/nullableMeasurement", "description": "°C"},
+        "atmospherePressure": {"$ref": "#/$defs/measurement"},
         "updatedAt": {"type": "string", "format": "date-time"},
         "visibility": {
-          "oneOf": [
-            {"type": "number"},
-            {"type": "null"},
-            {"type": "string", "enum": ["n/a", "N/A"]}
-          ],
+          "$ref": "#/$defs/nullableMeasurement",
           "description": "Visibility measurement, or n/a when the source reports it unavailable."
         },
-        "uvIndex": {"type": "number", "minimum": 0},
-        "humidity": {"type": ["number", "null"], "minimum": 0, "maximum": 100},
+        "uvIndex": {"$ref": "#/$defs/measurement"},
+        "humidity": {"$ref": "#/$defs/nullableMeasurement"},
         "tideChart": {
           "oneOf": [
             {"type": "null", "description": "No tide prediction is available for this location."},
