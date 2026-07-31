@@ -41,7 +41,7 @@ export interface WeatherTipsWeather {
     visibility: number | null | string;
     uvIndex: number;
     humidity: number | null;
-    tideChart: WeatherTipsTideChart | null | UnavailableValue;
+    tideChart: WeatherTipsTideChart | null;
 }
 
 export interface WeatherTips {
@@ -89,7 +89,7 @@ export function validateWeatherTipsWeather (value: unknown): string | null {
     if (!hasOnlyFields(value, WEATHER_FIELDS)) return "Body field 'weather' contains unsupported fields."
 
     if (!('tideChart' in value)) {
-        return "Body field 'weather.tideChart' (object, 'n/a', or null) is required."
+        return "Body field 'weather.tideChart' (object or null) is required."
     }
 
     for (const field of WEATHER_FIELDS) {
@@ -127,9 +127,9 @@ export function validateWeatherTipsWeather (value: unknown): string | null {
         return "Body field 'weather.humidity' must be between 0 and 100."
     }
 
-    if (value.tideChart !== null && !isUnavailableMeasurement(value.tideChart)) {
+    if (value.tideChart !== null) {
         if (!isObject(value.tideChart)) {
-            return "Body field 'weather.tideChart' must be an object, 'n/a', or null."
+            return "Body field 'weather.tideChart' must be an object or null."
         }
         if (!hasOnlyFields(value.tideChart, TIDE_CHART_FIELDS)) {
             return "Body field 'weather.tideChart' contains unsupported fields."
