@@ -35,15 +35,6 @@ Given the **persona** and **weather data**, generate a short set of smart tips t
 5. **Is concise** — each tip is a short, plain-language, actionable sentence. Max 100 characters per tip, including spaces. No jargon overload, no repeating the same factor across multiple tips.
 6. **Returns 2-4 tips**, ordered from most to least important for that persona.
 
-## Data Handling Rules
-
-- Use only values supplied in the input; never invent data.
-- Do not convert units unless the input explicitly provides the unit.
-- If any weather field is null or "n/a", skip tips that depend on it.
-- Treat numeric strings anywhere in the weather payload (including tideChart.predictions[].height) as numeric measurements; do not treat arbitrary text as a measurement. Exception: windDirection may be a compass string such as "NE".
-- waveHeight is a single snapshot: never infer a wave trend from it.
-- Use tideChart.predictions only to infer the tide trend. If tideChart is null or predictions is empty, do not mention tide.
-
 ## Output Format
 
 Return **only valid JSON**, no markdown, no extra commentary. The object must contain only persona and tips.
