@@ -43,6 +43,12 @@ const NOAA_STATION_ID = /^\d{7}$/;
 // là vừa tốn quota vừa phình cache. 7 ngày đủ cho biểu đồ tide của FE.
 const MAX_TIDE_DAYS = 7;
 
+// Map của FE chỉ hỗ trợ 5 mức zoom. Với tile Web Mercator ở zoom z, x/y luôn
+// là số nguyên trong [0, 2^z - 1]; chặn trước khi gọi OWM để input client sai
+// trả 400 thay vì biến thành lỗi upstream 502.
+const MIN_MAP_ZOOM = 1;
+const MAX_MAP_ZOOM = 5;
+
 /*----------------------------------------------------------------------------------------*/
 
 // Type mô tả object `useCases` mà `app.ts` sẽ truyền vào — nhóm theo domain
@@ -301,14 +307,24 @@ class Server {
 
     private async _GET_mapTile (req: Request, res: Response) {
         const layer = req.params.layer as string;
-        const z = parseInt(req.params.z as string);
-        const x = parseInt(req.params.x as string);
-        const y = parseInt(req.params.y as string);
+        const z = parseMapCoordinate(req.params.z as string);
+        const x = parseMapCoordinate(req.params.x as string);
+        const y = parseMapCoordinate(req.params.y as string);
 
         if (!(MAP_LAYERS as readonly string[]).includes(layer)) {
             throw new ClientError(`'layer' must be one of: ${MAP_LAYERS.join(', ')}`)
         }
-        if (isNaN(z) || isNaN(x) || isNaN(y)) throw new ClientError("'z', 'x', 'y' must be integers.")
+        if (z === null || x === null || y === null) {
+            throw new ClientError("'z', 'x', and 'y' must be integers.")
+        }
+        if (z < MIN_MAP_ZOOM || z > MAX_MAP_ZOOM) {
+            throw new ClientError(`'z' must be between ${MIN_MAP_ZOOM} and ${MAX_MAP_ZOOM}.`)
+        }
+
+        const maxTileCoordinate = (2 ** z) - 1
+        if (x < 0 || x > maxTileCoordinate || y < 0 || y > maxTileCoordinate) {
+            throw new ClientError(`'x' and 'y' must be between 0 and ${maxTileCoordinate} for zoom ${z}.`)
+        }
 
         // Tile ảnh nhị phân — không có "trạng thái rỗng" hợp lý -> upstream (OWM)
         // lỗi thì 502, không phải 500.
@@ -394,4 +410,11 @@ class Server {
             )
         })
     }
+}
+
+function parseMapCoordinate (value: string): number | null {
+    if (!/^-?\d+$/.test(value)) return null
+
+    const coordinate = Number(value)
+    return Number.isSafeInteger(coordinate) ? coordinate : null
 }

@@ -34,30 +34,36 @@
         "uvIndex": {"type": "number", "minimum": 0},
         "humidity": {"type": ["number", "null"], "minimum": 0, "maximum": 100},
         "tideChart": {
-          "type": "object",
-          "additionalProperties": false,
-          "required": ["stationId", "predictions"],
-          "properties": {
-            "stationId": {"type": "string", "minLength": 1},
-            "predictions": {
-              "type": "array",
-              "items": {
-                "type": "object",
-                "additionalProperties": false,
-                "required": ["time", "height"],
-                "properties": {
-                  "time": {"type": "string", "format": "date-time"},
-                  "height": {
-                    "oneOf": [
-                      {"type": "number"},
-                      {"type": "string", "pattern": "^[+-]?(?:\\d+(?:\\.\\d*)?|\\.\\d+)(?:[eE][+-]?\\d+)?$"}
-                    ],
-                    "description": "meters; numeric strings from tide sources are accepted."
+          "oneOf": [
+            {"type": "null", "description": "No tide prediction is available for this location."},
+            {"type": "string", "enum": ["n/a", "N/A"], "description": "No tide prediction is available for this location."},
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["stationId", "predictions"],
+              "properties": {
+                "stationId": {"type": "string", "minLength": 1},
+                "predictions": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": ["time", "height"],
+                    "properties": {
+                      "time": {"type": "string", "format": "date-time"},
+                      "height": {
+                        "oneOf": [
+                          {"type": "number"},
+                          {"type": "string", "pattern": "^[+-]?(?:\\d+(?:\\.\\d*)?|\\.\\d+)(?:[eE][+-]?\\d+)?$"}
+                        ],
+                        "description": "meters; numeric strings from tide sources are accepted."
+                      }
+                    }
                   }
                 }
               }
             }
-          }
+          ]
         }
       }
     }
