@@ -36,7 +36,6 @@
         "tideChart": {
           "oneOf": [
             {"type": "null", "description": "No tide prediction is available for this location."},
-            {"type": "string", "enum": ["n/a", "N/A"], "description": "No tide prediction is available for this location."},
             {
               "type": "object",
               "additionalProperties": false,
