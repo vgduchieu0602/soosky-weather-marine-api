@@ -15,7 +15,11 @@ export default class MongoWeatherBitCache implements WeatherBitCacheStore {
             dewPoint: doc.dewPoint,
             humidityUpdatedAt: doc.humidityUpdatedAt,
             uvIndex: doc.uvIndex,
-            uvUpdatedAt: doc.uvUpdatedAt
+            uvUpdatedAt: doc.uvUpdatedAt,
+            // Doc cũ (ghi trước khi tách mốc cache) chưa có 2 field này -> null
+            // = coi như hết hạn, refetch 1 lần rồi có mốc chuẩn.
+            humidityCachedAt: doc.humidityCachedAt ?? null,
+            uvCachedAt: doc.uvCachedAt ?? null
         }
     }
 

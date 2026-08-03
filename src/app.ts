@@ -74,13 +74,15 @@ const WEATHER_CACHE_TTL = {
         ndbc: SIX_MINUTES,
         weatherBitHumidity: TEN_MINUTES,
         weatherBitUv: TEN_MINUTES,
-        owmForecast: FIFTEEN_MINUTES
+        owmForecast: FIFTEEN_MINUTES,
+        owmCurrent: FIFTEEN_MINUTES
     },
     normal: {
         ndbc: THIRTY_MINUTES,
-        weatherBitHumidity: ONE_HOUR,
+        weatherBitHumidity: THREE_HOURS,
         weatherBitUv: THREE_HOURS,
-        owmForecast: ONE_DAY
+        owmForecast: ONE_DAY,
+        owmCurrent: THIRTY_MINUTES
     }
 } as const
 
@@ -99,7 +101,8 @@ const buoyRepo = new NdbcBuoyRepository()
 // Cache share giữa mọi user + instance, sống sót restart. TTL theo cadence từng nguồn:
 //  - buoy/point 30 phút: data đo thực tế, đổi liên tục.
 //  - tide/OWM forecast 1 ngày: data 1 ngày cụ thể không đổi trong ngày.
-//  - WeatherBit: humidity 1h, uvIndex 3h (2 field lệch nhịp, 2 timestamp riêng).
+//  - WeatherBit: humidity + uvIndex 3h (2 field vẫn tách timestamp/TTL riêng).
+//    TTL đo từ mốc GHI CACHE, không từ ob_time (WeatherBit trễ 15-60 phút).
 const mongoBuoyRepo = new CachedBuoyWeatherRepository(
     buoyRepo, new MongoBuoyWeatherCache(), ACTIVE_WEATHER_CACHE_TTL.ndbc
 )
@@ -113,7 +116,9 @@ const weatherBitRepo = new CachedWeatherBitRepository(
 const forecastRepo = new CachedOwmForecastRepository(
     new OwmForecastRepositoryImpl(), new MongoOwmForecastCache(), ACTIVE_WEATHER_CACHE_TTL.owmForecast
 )
-const pointWeatherRepo = new CachedPointWeatherRepository(new OwmCurrentRepository(), new MongoPointWeatherCache(), THIRTY_MINUTES)
+const pointWeatherRepo = new CachedPointWeatherRepository(
+    new OwmCurrentRepository(), new MongoPointWeatherCache(), ACTIVE_WEATHER_CACHE_TTL.owmCurrent
+)
 
 // Map tile: cache TTL ngắn TRONG RAM (không Mongo — ảnh nặng, không cần bền vững),
 // có cap LRU để RAM không phình. Giảm gọi OWM khi pan/zoom xin lại cùng tile.
