@@ -11,9 +11,13 @@ export interface WeatherBitCacheEntry {
     temperature: number | null;
     humidity: number | null;
     dewPoint: number | null;    // cùng API call với humidity -> dùng chung humidityUpdatedAt
-    humidityUpdatedAt: string;  //ISO UTC — lúc humidity/dewPoint lấy gần nhất
+    humidityUpdatedAt: string;  //ISO UTC — lúc WeatherBit ĐO humidity/dewPoint (trả client)
     uvIndex: number | null;
-    uvUpdatedAt: string;        //ISO UTC — lúc uvIndex lấy gần nhất
+    uvUpdatedAt: string;        //ISO UTC — lúc WeatherBit ĐO uvIndex (trả client)
+    // Mốc GHI CACHE — dùng so TTL. TÁCH khỏi *UpdatedAt vì ob_time của WeatherBit
+    // trễ 15-60 phút; đo TTL bằng ob_time làm cache hết hạn ngay khi vừa ghi.
+    humidityCachedAt: string | null;
+    uvCachedAt: string | null;
 }
 
 export interface WeatherBitCacheStore {

@@ -11,6 +11,11 @@ export default class CachedOwmForecastRepository implements OwmForecastRepositor
     ) {}
 
     public getForecast (query: OwmForecastQuery): Promise<OwmForecast> {
-        return cacheAside(this._cache, query, this._ttlMs, () => this._source.getForecast(query), 'owm-forecast')
+        // expiresOnUtcDayChange: forecast daily gắn với ngày lịch -> sang ngày mới
+        // UTC phải refetch dù TTL chưa hết, không thì daily lệch 1 ngày.
+        return cacheAside(
+            this._cache, query, this._ttlMs, () => this._source.getForecast(query), 'owm-forecast',
+            { expiresOnUtcDayChange: true }
+        )
     }
 }

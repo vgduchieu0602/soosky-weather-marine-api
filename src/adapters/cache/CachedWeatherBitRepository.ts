@@ -21,8 +21,11 @@ export default class CachedWeatherBitRepository implements WeatherBitRepository 
     public async getWeatherBitCurrent (query: WeatherBitQuery): Promise<WeatherBitCurrent> {
         const entry = await this._cache.read(query)
 
-        const humidityFresh = !!entry && isFresh(entry.humidityUpdatedAt, this._humidityTtlMs)
-        const uvFresh = !!entry && isFresh(entry.uvUpdatedAt, this._uvTtlMs)
+        // TTL đo từ mốc GHI CACHE (*CachedAt), KHÔNG từ mốc quan trắc (*UpdatedAt):
+        // ob_time của WeatherBit trễ 15-60 phút nên đo bằng nó sẽ làm cache hết hạn
+        // ngay lúc vừa ghi -> mọi request đều đi upstream.
+        const humidityFresh = !!entry && isFresh(entry.humidityCachedAt, this._humidityTtlMs)
+        const uvFresh = !!entry && isFresh(entry.uvCachedAt, this._uvTtlMs)
 
         if (entry && humidityFresh && uvFresh) {
             recordDataSource({ source: 'weatherbit', status: 'cache', dataFetchedAt: entry.fetchedAt })
@@ -60,10 +63,12 @@ export default class CachedWeatherBitRepository implements WeatherBitRepository 
             patch.humidity = fresh.humidity
             patch.dewPoint = fresh.dewPoint
             patch.humidityUpdatedAt = fresh.updatedAt
+            patch.humidityCachedAt = fetchedAt
         }
         if (!uvFresh) {
             patch.uvIndex = fresh.uvIndex
             patch.uvUpdatedAt = fresh.updatedAt
+            patch.uvCachedAt = fetchedAt
         }
 
         await this._cache.write(query, patch)

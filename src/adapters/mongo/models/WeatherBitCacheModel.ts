@@ -7,9 +7,11 @@ export interface WeatherBitCacheDoc {
     temperature: number | null;
     humidity: number | null;
     dewPoint: number | null;
-    humidityUpdatedAt: string;  //ISO UTC — lúc humidity/dewPoint được lấy gần nhất
+    humidityUpdatedAt: string;  //ISO UTC — lúc WeatherBit ĐO humidity/dewPoint
     uvIndex: number | null;
-    uvUpdatedAt: string;        //ISO UTC — lúc uvIndex được lấy gần nhất
+    uvUpdatedAt: string;        //ISO UTC — lúc WeatherBit ĐO uvIndex
+    humidityCachedAt: string | null; //ISO UTC — lúc GHI cache humidity (so TTL)
+    uvCachedAt: string | null;       //ISO UTC — lúc GHI cache uvIndex (so TTL)
 }
 
 const schema = new Schema<WeatherBitCacheDoc>({
@@ -21,7 +23,9 @@ const schema = new Schema<WeatherBitCacheDoc>({
     dewPoint:          {type: Number, default: null},
     humidityUpdatedAt: {type: String, default: null},
     uvIndex:           {type: Number, default: null},
-    uvUpdatedAt:       {type: String, default: null}
+    uvUpdatedAt:       {type: String, default: null},
+    humidityCachedAt:  {type: String, default: null},
+    uvCachedAt:        {type: String, default: null}
 })
 
 schema.index({lat: 1, lon: 1}, {unique: true})

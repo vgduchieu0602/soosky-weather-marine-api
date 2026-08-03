@@ -15,6 +15,17 @@ function asIso (value: Date | string | null | undefined): string | null {
     return value ? new Date(value).toISOString() : null
 }
 
+// Nguồn "theo ngày" (forecast daily OWM) phải reset khi sang ngày mới UTC, kể cả
+// khi TTL 24h chưa chạy hết: ghi 15:36 thì 00:10 hôm sau danh sách daily đã lệch
+// 1 ngày. Đo bằng ngày UTC để mọi instance/server nhất quán.
+function isSameUtcDay (freshAt: Date | string): boolean {
+    return new Date(freshAt).toISOString().slice(0, 10) === new Date().toISOString().slice(0, 10)
+}
+
+export interface CacheAsideOptions {
+    expiresOnUtcDayChange?: boolean;
+}
+
 // Cache còn tươi -> trả cache; hết hạn/trống -> gọi source, ghi cache, trả về.
 // Refetch LỖI mà vẫn còn bản cache (dù stale) -> trả bản stale (data cũ tốt hơn
 // 500). Chỉ ném lỗi khi HOÀN TOÀN không có cache để phục vụ.
@@ -23,10 +34,12 @@ export async function cacheAside<Q, V>(
     query: Q,
     ttlMs: number,
     fetchFresh: () => Promise<V>,
-    source: string
+    source: string,
+    options: CacheAsideOptions = {}
 ): Promise<V> {
     const hit = await store.read(query);
-    if (hit && isFresh(hit.freshAt, ttlMs)) {
+    const sameDay = !options.expiresOnUtcDayChange || (!!hit?.freshAt && isSameUtcDay(hit.freshAt));
+    if (hit && sameDay && isFresh(hit.freshAt, ttlMs)) {
         recordDataSource({ source, status: 'cache', dataFetchedAt: asIso(hit.freshAt) })
         return hit.value;
     }
