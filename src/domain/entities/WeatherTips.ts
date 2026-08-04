@@ -42,7 +42,8 @@ export interface WeatherTipsWeather {
     waveHeight: NullableMeasurement;
     waterTemp: NullableMeasurement;
     atmospherePressure: Measurement;
-    updatedAt: string;
+    // Thời điểm đo: ISO UTC khi có dữ liệu; null / "n/a" khi upstream không trả về.
+    updatedAt: string | null;
     visibility: NullableMeasurement;
     uvIndex: Measurement;
     humidity: NullableMeasurement;
@@ -135,8 +136,11 @@ export function validateWeatherTipsWeather (value: unknown): string | null {
     if (!isInRange(value.windDirection, 0, 360)) {
         return "Body field 'weather.windDirection' must be between 0 and 360."
     }
-    if (typeof value.updatedAt !== 'string' || !isIsoTimestamp(value.updatedAt)) {
-        return "Body field 'weather.updatedAt' must be an ISO 8601 timestamp."
+    const hasValidUpdatedAt = value.updatedAt === null
+        || isUnavailableMeasurement(value.updatedAt)
+        || (typeof value.updatedAt === 'string' && isIsoTimestamp(value.updatedAt));
+    if (!hasValidUpdatedAt) {
+        return "Body field 'weather.updatedAt' must be an ISO 8601 timestamp, 'n/a', or null."
     }
 
     const nullableMeasurementFields = ['waveHeight', 'waterTemp', 'humidity', 'visibility'] as const;
