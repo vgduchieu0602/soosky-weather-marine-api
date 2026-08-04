@@ -28,6 +28,18 @@ test('accepts a weather-tips payload without tide data', () => {
     assert.equal(validateWeatherTipsWeather({...validWeather, tideChart: null}), null)
 })
 
+test('accepts unavailable updatedAt returned by weather detail endpoints', () => {
+    assert.equal(validateWeatherTipsWeather({...validWeather, updatedAt: 'n/a'}), null)
+})
+
+test('accepts a null updatedAt when no observation time is available', () => {
+    assert.equal(validateWeatherTipsWeather({...validWeather, updatedAt: null}), null)
+})
+
+test('accepts the uppercase unavailable updatedAt placeholder', () => {
+    assert.equal(validateWeatherTipsWeather({...validWeather, updatedAt: 'N/A'}), null)
+})
+
 test('rejects a tide-chart placeholder so FE sends null when data is unavailable', () => {
     assert.equal(
         validateWeatherTipsWeather({...validWeather, tideChart: 'n/a'}),

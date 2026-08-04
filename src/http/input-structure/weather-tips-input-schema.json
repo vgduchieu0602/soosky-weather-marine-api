@@ -45,7 +45,14 @@
         "waveHeight": {"$ref": "#/$defs/nullableMeasurement", "description": "meters"},
         "waterTemp": {"$ref": "#/$defs/nullableMeasurement", "description": "°C"},
         "atmospherePressure": {"$ref": "#/$defs/measurement"},
-        "updatedAt": {"type": "string", "format": "date-time"},
+        "updatedAt": {
+          "oneOf": [
+            {"type": "string", "format": "date-time"},
+            {"type": "string", "enum": ["n/a", "N/A"]},
+            {"type": "null"}
+          ],
+          "description": "Observation time in ISO 8601, or an unavailable value when the source did not provide one."
+        },
         "visibility": {
           "$ref": "#/$defs/nullableMeasurement",
           "description": "Visibility measurement, or n/a when the source reports it unavailable."
