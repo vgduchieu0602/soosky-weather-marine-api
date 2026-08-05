@@ -126,12 +126,8 @@ export function validateWeatherTipsWeather (value: unknown): string | null {
         }
     }
 
-    // windDirection nhận thêm chuỗi la bàn ("NE") ngoài số/chuỗi số.
-    if (typeof value.windDirection !== 'number' && typeof value.windDirection !== 'string') {
-        return "Body field 'weather.windDirection' must be a number or compass string."
-    }
-    if (typeof value.windDirection === 'number' && !Number.isFinite(value.windDirection)) {
-        return "Body field 'weather.windDirection' must be a number or compass string."
+    if (!isMeasurement(value.windDirection)) {
+        return "Body field 'weather.windDirection' must be a number, numeric string, or 'n/a'."
     }
     if (!isInRange(value.windDirection, 0, 360)) {
         return "Body field 'weather.windDirection' must be between 0 and 360."

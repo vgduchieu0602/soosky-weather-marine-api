@@ -2,6 +2,7 @@ import config from '../../config'
 import PointWeatherRepository, {PointWeatherQuery} from '../../domain/repositories/IPointWeatherRepository'
 import {PointWeather} from '../../domain/entities/PointWeather'
 import {partOfDay, conditionCode, conditionIcon} from './owmCondition'
+import WindDirection from '../../domain/value-objects/WindDirection';
 
 const OWM_CURRENT_BASE = 'https://api.openweathermap.org/data/2.5/weather';
 
@@ -21,6 +22,7 @@ export default class OwmCurrentRepository implements PointWeatherRepository {
         // ngày/đêm lấy từ chính `weather[0].icon` OWM trả về.
         const weather = json.weather?.[0];
         const pod = partOfDay(weather);
+        const windDirection = WindDirection.from(json.wind?.deg);
 
         return {
             lat: query.lat,
@@ -29,7 +31,7 @@ export default class OwmCurrentRepository implements PointWeatherRepository {
             conditionMain: weather?.main ?? null,
             description: weather?.description ?? null,
             icon: conditionIcon(weather, pod),
-            windDirection: json.wind?.deg ?? null,
+            windDirection: windDirection?.degrees ?? null,
             windSpeed: json.wind?.speed ?? null,
             gust: json.wind?.gust ?? null,
             // OWM current KHÔNG đo sóng/nhiệt độ nước — luôn null (chỉ buoy có).

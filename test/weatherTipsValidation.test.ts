@@ -24,6 +24,13 @@ test('accepts a weather-tips payload matching the tideChart contract', () => {
     assert.equal(validateWeatherTipsWeather(validWeather), null)
 })
 
+test("rejects compass values for wind direction", () => {
+    assert.equal(
+        validateWeatherTipsWeather({ ...validWeather, windDirection: "NE" }),
+        "Body field 'weather.windDirection' must be a number, numeric string, or 'n/a'."
+    );
+});
+
 test('accepts a weather-tips payload without tide data', () => {
     assert.equal(validateWeatherTipsWeather({...validWeather, tideChart: null}), null)
 })
