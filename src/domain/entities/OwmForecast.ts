@@ -34,6 +34,7 @@ export interface DailyForecastPoint {
 export interface OwmForecast {
     lat: number;
     lon: number;
+    timezoneOffsetSeconds: number; // lệch giờ địa phương tại toạ độ forecast so với UTC
     hourly: HourlyForecastPoint[];
     daily: DailyForecastPoint[];
     updatedAt: string;

@@ -39,6 +39,7 @@ export default class OwmForecastRepositoryImpl implements OwmForecastRepository 
         return {
             lat: query.lat,
             lon: query.lon,
+            timezoneOffsetSeconds: tzOffsetSec,
             hourly: this._toHourly(list, tzOffsetSec),
             daily: this._toDaily(list, tzOffsetSec),
             updatedAt: new Date().toISOString(),

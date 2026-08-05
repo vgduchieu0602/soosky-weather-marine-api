@@ -22,6 +22,7 @@ test('includes the closest OWM forecast point even when it is less than three ho
 
     const result = await new OwmForecastRepository().getForecast({ lat: 10, lon: 106 })
 
+    assert.equal(result.timezoneOffsetSeconds, 7 * 60 * 60)
     assert.deepEqual(result.hourly.map((point) => point.time), [
         '2026-08-05T06:00:00.000Z',
         '2026-08-05T09:00:00.000Z',
