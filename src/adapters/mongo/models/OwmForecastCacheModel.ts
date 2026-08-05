@@ -25,6 +25,7 @@ const dailySchema = new Schema<DailyForecastPoint>({
 export interface OwmForecastCacheDoc {
     lat: number;
     lon: number;
+    timezoneOffsetSeconds?: number;
     hourly: HourlyForecastPoint[];
     daily: DailyForecastPoint[];
     updatedAt?: Date;   //do {timestamps: true} sinh ra
@@ -33,6 +34,7 @@ export interface OwmForecastCacheDoc {
 const schema = new Schema<OwmForecastCacheDoc>({
     lat:    {type: Number, required: true},
     lon:    {type: Number, required: true},
+    timezoneOffsetSeconds: {type: Number, default: 0},
     hourly: {type: [hourlySchema], default: []},
     daily:  {type: [dailySchema], default: []}
 }, {timestamps: true})
