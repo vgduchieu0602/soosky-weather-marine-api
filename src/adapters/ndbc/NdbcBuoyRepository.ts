@@ -1,5 +1,6 @@
 import BuoyWeatherRepository, {BuoyQuery} from "../../domain/repositories/IBuoyWeatherRepository";
 import {BuoyWeather} from "../../domain/entities/BuoyWeather";
+import WindDirection from "../../domain/value-objects/WindDirection";
 
 const NDBC_BASE = "https://www.ndbc.noaa.gov/data/realtime2";
 
@@ -45,10 +46,11 @@ export default class NdbcBuoyRepository implements BuoyWeatherRepository {
 
         const cols = lines[0]!.split(/\s+/)
         const visNmi = this._num(cols[COL.vis]);
+        const windDirection = WindDirection.from(this._num(cols[COL.wdir]));
 
         return {
             buoyId,
-            windDirection: this._num(cols[COL.wdir]),
+            windDirection: windDirection?.degrees ?? null,
             windSpeed: this._num(cols[COL.wspd]),
             gust: this._num(cols[COL.gst]),
             waveHeight: this._num(cols[COL.wvht]),

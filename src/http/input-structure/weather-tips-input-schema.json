@@ -40,7 +40,14 @@
       "properties": {
         "temperature": {"$ref": "#/$defs/measurement", "description": "°C"},
         "windSpeed": {"$ref": "#/$defs/measurement", "description": "Use the supplied unit without conversion."},
-        "windDirection": {"oneOf": [{"type": "number", "minimum": 0, "maximum": 360}, {"type": "string"}]},
+        "windDirection": {
+          "oneOf": [
+            {"type": "number", "minimum": 0, "maximum": 360},
+            {"$ref": "#/$defs/numericString"},
+            {"type": "string", "enum": ["n/a", "N/A"]}
+          ],
+          "description": "Wind direction in degrees from 0 to 360, as a numeric string, or n/a when unavailable."
+        },
         "gust": {"$ref": "#/$defs/measurement"},
         "waveHeight": {"$ref": "#/$defs/nullableMeasurement", "description": "meters"},
         "waterTemp": {"$ref": "#/$defs/nullableMeasurement", "description": "°C"},

@@ -2,12 +2,14 @@ import { CacheStore, CacheHit } from '../../cache/ICacheStore'
 import { PointWeather } from '../../../domain/entities/PointWeather'
 import { PointWeatherQuery } from '../../../domain/repositories/IPointWeatherRepository'
 import PointWeatherCacheModel from '../models/PointWeatherCacheModel'
+import WindDirection from '../../../domain/value-objects/WindDirection';
 
 // owmUpdatedAt = lúc OWM đo (trả client); updatedAt = lúc ghi cache (so TTL).
 export default class MongoPointWeatherCache implements CacheStore<PointWeatherQuery, PointWeather> {
     public async read (query: PointWeatherQuery): Promise<CacheHit<PointWeather> | null> {
         const doc = await PointWeatherCacheModel.findOne({ lat: query.lat, lon: query.lon }).lean()
         if (!doc) return null
+        const windDirection = WindDirection.from(doc.windDirection);
         return {
             value: {
                 lat: doc.lat,
@@ -18,7 +20,7 @@ export default class MongoPointWeatherCache implements CacheStore<PointWeatherQu
                 conditionMain: doc.conditionMain ?? null,
                 description: doc.description ?? null,
                 icon: doc.icon ?? null,
-                windDirection: doc.windDirection,
+                windDirection: windDirection?.degrees ?? null,
                 windSpeed: doc.windSpeed,
                 gust: doc.gust,
                 waveHeight: doc.waveHeight,
