@@ -2,6 +2,8 @@ import dotenv from 'dotenv'
 
 export {config as default};
 
+export type OwmForecastSource = 'free-3h' | 'pro-hourly' | 'onecall-4'
+
 /*--------------------------------------------------------------------------*/
 
 class MissingEnvVarError extends Error {
@@ -19,6 +21,14 @@ dotenv.config({
 
 /*--------------------------------------------------------------------------*/
 
+function getOwmForecastSource(value: string | undefined): OwmForecastSource {
+    const source = value ?? 'onecall-4'
+    if (source === 'free-3h' || source === 'pro-hourly' || source === 'onecall-4') return source
+    throw new Error('OWM_FORECAST_SOURCE must be free-3h, pro-hourly, or onecall-4.')
+}
+
+/*--------------------------------------------------------------------------*/
+
 const config = {
     http: {
         port: parseInt(process.env.HTTP_PORT || '') || 3002,
@@ -28,7 +38,11 @@ const config = {
         uri: process.env.MONGO_URI
     },
     owm: {
-        apiKey: process.env.OWM_API_KEY
+        apiKey: process.env.OWM_API_KEY,
+        forecastSource: getOwmForecastSource(process.env.OWM_FORECAST_SOURCE)
+    },
+    mapTiles: {
+        enabled: process.env.MAP_TILES_ENABLED === 'true'
     },
     weatherBit: {
         apiKey: process.env.WEATHERBIT_API_KEY,

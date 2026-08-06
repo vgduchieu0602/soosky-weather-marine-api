@@ -192,7 +192,7 @@ const useCases = {
 /*----------------------------------------------------------------------------------*/
 
 async function startServer() {
-    const server = new Server(useCases, rateLimiter, mapRateLimiter);
+const server = new Server(useCases, rateLimiter, mapRateLimiter, config.mapTiles.enabled);
     await server.listen(HTTP_PORT, HTTP_HOST);
     console.log(`Soosky Weather Marine API running on http://${HTTP_HOST}:${HTTP_PORT}`);
 }

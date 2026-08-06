@@ -1,5 +1,6 @@
 import {Schema, model} from 'mongoose'
 import {HourlyForecastPoint, DailyForecastPoint} from '../../../domain/entities/OwmForecast'
+import type {OwmForecastSource} from '../../../config'
 
 const hourlySchema = new Schema<HourlyForecastPoint>({
     time:          {type: String, required: true},
@@ -25,6 +26,7 @@ const dailySchema = new Schema<DailyForecastPoint>({
 export interface OwmForecastCacheDoc {
     lat: number;
     lon: number;
+    forecastSource?: OwmForecastSource;
     timezoneOffsetSeconds?: number;
     hourly: HourlyForecastPoint[];
     daily: DailyForecastPoint[];
@@ -34,6 +36,7 @@ export interface OwmForecastCacheDoc {
 const schema = new Schema<OwmForecastCacheDoc>({
     lat:    {type: Number, required: true},
     lon:    {type: Number, required: true},
+    forecastSource: {type: String, enum: ['free-3h', 'pro-hourly', 'onecall-4']},
     timezoneOffsetSeconds: {type: Number, default: 0},
     hourly: {type: [hourlySchema], default: []},
     daily:  {type: [dailySchema], default: []}

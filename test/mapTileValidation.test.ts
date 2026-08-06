@@ -4,7 +4,10 @@ import Server from '../src/http/Server'
 import ClientError from '../src/http/ClientError'
 import RateLimiter from '../src/http/RateLimiter'
 
-function createServer (getTile = async () => ({buffer: Buffer.from('tile'), contentType: 'image/png'})) {
+function createServer (
+    getTile = async () => ({buffer: Buffer.from('tile'), contentType: 'image/png'}),
+    mapTilesEnabled = true
+) {
     return new Server({
         tide: {getTideChart: {execute: async () => undefined}},
         buoy: {
@@ -16,7 +19,7 @@ function createServer (getTile = async () => ({buffer: Buffer.from('tile'), cont
         radar: {getRadar: {execute: async () => undefined}},
         alert: {getAlerts: {execute: async () => undefined}},
         tips: {getWeatherTips: {execute: async () => undefined}}
-    } as any, new RateLimiter(1, 1, 1, false), new RateLimiter(1, 1, 1, false))
+    } as any, new RateLimiter(1, 1, 1, false), new RateLimiter(1, 1, 1, false), mapTilesEnabled)
 }
 
 function mapResponse () {
@@ -70,4 +73,22 @@ test('passes a valid map tile request to the map use case', async () => {
     )
 
     assert.deepEqual(requests, [{layer: 'temperature', z: 1, x: 1, y: 0}])
+})
+
+test('does not invoke the map use case when map tiles are disabled', async () => {
+    let requests = 0
+    const server = createServer(async () => {
+        requests += 1
+        return {buffer: Buffer.from('tile'), contentType: 'image/png'}
+    }, false)
+
+    await assert.rejects(
+        () => (server as any)._GET_mapTile(
+            {params: {layer: 'temperature', z: '1', x: '1', y: '0'}},
+            mapResponse()
+        ),
+        (err: unknown) => err instanceof ClientError && err.statusCode === 503 && err.code === 'MAP_TILES_DISABLED'
+    )
+
+    assert.equal(requests, 0)
 })

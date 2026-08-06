@@ -1,16 +1,17 @@
-import config from '../../config'
+import config, {OwmForecastSource} from '../../config'
 import OwmForecastRepository, {OwmForecastQuery} from '../../domain/repositories/IOwmForecastRepository';
 import {OwmForecast, HourlyForecastPoint, DailyForecastPoint} from '../../domain/entities/OwmForecast'
 import {OwmWeatherEntry, PartOfDay, partOfDay, conditionCode, conditionIcon} from './owmCondition'
 
-// Endpoint FREE: 5-day / 3-hour forecast (nằm trong gói free OWM). Thay cho 2
-// endpoint trả phí cũ (pro hourly + forecast/daily 16 ngày) từng gây 401. Trả 1
-// list ~40 bước 3 giờ; tự tách ra `hourly` (dùng thẳng từng bước) + gộp thành
-// `daily` (5 ngày) để giữ nguyên shape OwmForecast.
-const OWM_FORECAST_BASE = 'https://api.openweathermap.org/data/2.5/forecast';
-const DAILY_DAYS = 5;
+const OWM_FORECAST_BASE: Record<Exclude<OwmForecastSource, 'onecall-4'>, string> = {
+    'free-3h': 'https://api.openweathermap.org/data/2.5/forecast',
+    'pro-hourly': 'https://pro.openweathermap.org/data/2.5/forecast/hourly'
+};
+const OWM_ONECALL_BASE = 'https://api.openweathermap.org/data/4.0/onecall/timeline';
+const DAILY_DAYS = 4;
+const THREE_HOURS_SECONDS = 3 * 60 * 60;
 
-// 1 bước dữ liệu thô trong `list` của OWM 5-day/3h forecast.
+// 1 bước dữ liệu đã chuẩn hoá từ các endpoint forecast OWM.
 type OwmStep = {
     dt: number;
     main?: { temp?: number; temp_min?: number; temp_max?: number };
@@ -20,9 +21,39 @@ type OwmStep = {
     sys?: { pod?: string };     //'d' | 'n' — part of day theo chính OWM
 };
 
+type SelectedHourlyStep = {
+    step: OwmStep;
+    displayTimeSec: number;
+};
+
+type OwmOneCallHourlyStep = {
+    dt: number;
+    temp?: number;
+    wind_speed?: number;
+    pop?: number;
+    weather?: OwmWeatherEntry[];
+};
+
+type OwmOneCallDailyStep = {
+    dt: number;
+    temp?: {min?: number; max?: number};
+    wind_speed?: number;
+    pop?: number;
+    weather?: OwmWeatherEntry[];
+};
+
+type OwmOneCallResponse<T> = {
+    timezone_offset?: number;
+    data?: T[];
+};
+
 export default class OwmForecastRepositoryImpl implements OwmForecastRepository {
     public async getForecast(query: OwmForecastQuery): Promise<OwmForecast> {
-        const url = `${OWM_FORECAST_BASE}?lat=${query.lat}&lon=${query.lon}&appid=${config.owm.apiKey}&units=metric`;
+        const source = config.owm.forecastSource;
+        if (source === 'onecall-4') return this._getOneCallForecast(query);
+
+        const baseUrl = OWM_FORECAST_BASE[source];
+        const url = `${baseUrl}?lat=${query.lat}&lon=${query.lon}&appid=${config.owm.apiKey}&units=metric`;
         const resp = await fetch(url);
 
         if (!resp.ok) {
@@ -40,45 +71,151 @@ export default class OwmForecastRepositoryImpl implements OwmForecastRepository 
             lat: query.lat,
             lon: query.lon,
             timezoneOffsetSeconds: tzOffsetSec,
-            hourly: this._toHourly(list, tzOffsetSec),
+            hourly: this._toHourly(list, tzOffsetSec, source),
             daily: this._toDaily(list, tzOffsetSec),
             updatedAt: new Date().toISOString(),
         };
     }
 
-    // Mỗi bước 3h -> 1 điểm hourly (granularity 3h là mức của gói free).
-    // CHỈ giữ các bước thuộc NGÀY HÔM NAY theo giờ địa phương tại toạ độ đó —
-    // FE vẽ dải giờ của hôm nay, không cần bước của ngày mai trở đi (đã có `daily`).
+    private async _getOneCallForecast(query: OwmForecastQuery): Promise<OwmForecast> {
+        const hourlyUrl = this._oneCallUrl('1h', query);
+        const dailyUrl = this._oneCallUrl('1day', query);
+        const [hourlyResponse, dailyResponse] = await Promise.all([
+            fetch(hourlyUrl),
+            fetch(dailyUrl)
+        ]);
+
+        if (!hourlyResponse.ok || !dailyResponse.ok) {
+            throw new Error(
+                `OWM One Call forecast request failed: hourly HTTP ${hourlyResponse.status}, daily HTTP ${dailyResponse.status}`
+            );
+        }
+
+        const [hourlyJson, dailyJson] = await Promise.all([
+            hourlyResponse.json() as Promise<OwmOneCallResponse<OwmOneCallHourlyStep>>,
+            dailyResponse.json() as Promise<OwmOneCallResponse<OwmOneCallDailyStep>>
+        ]);
+        const tzOffsetSec = typeof hourlyJson.timezone_offset === 'number'
+            ? hourlyJson.timezone_offset
+            : typeof dailyJson.timezone_offset === 'number' ? dailyJson.timezone_offset : 0;
+
+        return {
+            lat: query.lat,
+            lon: query.lon,
+            timezoneOffsetSeconds: tzOffsetSec,
+            hourly: this._toHourly(
+                this._normalizeOneCallHourly(hourlyJson.data ?? []),
+                tzOffsetSec,
+                'onecall-4'
+            ),
+            daily: this._toOneCallDaily(dailyJson.data ?? [], tzOffsetSec),
+            updatedAt: new Date().toISOString(),
+        };
+    }
+
+    private _oneCallUrl(step: '1h' | '1day', query: OwmForecastQuery): string {
+        return `${OWM_ONECALL_BASE}/${step}?lat=${query.lat}&lon=${query.lon}&appid=${config.owm.apiKey}&units=metric`;
+    }
+
+    // Các nhãn sản phẩm cách nhau 3 giờ, từ đầu giờ địa phương hiện tại + 3h.
+    // Pro dùng bản ghi hourly đúng mốc; free gán nhãn giả lập cho bản ghi 3h đầu
+    // tiên không sớm hơn mốc đó để tester có dải giờ giống production.
     // Hậu tố ngày/đêm lấy theo ĐÚNG bước đó -> icon đêm cho các bước ban đêm.
-    private _toHourly(list: OwmStep[], tzOffsetSec: number): HourlyForecastPoint[] {
-        const today = this._localDate(Math.floor(Date.now() / 1000), tzOffsetSec);
-        let steps = list.filter((s) => this._localDate(s.dt, tzOffsetSec) === today);
+    private _toHourly(
+        list: OwmStep[],
+        tzOffsetSec: number,
+        source: OwmForecastSource
+    ): HourlyForecastPoint[] {
+        const nowSec = Math.floor(Date.now() / 1000);
+        const firstSlotSec = this._firstForecastSlot(nowSec, tzOffsetSec);
+        const selectedSteps = this._selectHourlySteps(list, firstSlotSec, source);
+        const today = this._localDate(nowSec, tzOffsetSec);
+        let steps = selectedSteps.filter((item) =>
+            this._localDate(item.displayTimeSec, tzOffsetSec) === today
+        );
 
         // Gọi lúc đêm muộn: OWM có thể không còn bước 3h nào của hôm nay nữa ->
         // rơi về ngày sớm nhất còn dữ liệu để dải giờ không rỗng.
-        const first = list[0];
+        const first = selectedSteps[0];
         if (steps.length === 0 && first) {
-            const firstDate = this._localDate(first.dt, tzOffsetSec);
-            steps = list.filter((s) => this._localDate(s.dt, tzOffsetSec) === firstDate);
+            const firstDate = this._localDate(first.displayTimeSec, tzOffsetSec);
+            steps = selectedSteps.filter((item) =>
+                this._localDate(item.displayTimeSec, tzOffsetSec) === firstDate
+            );
         }
 
-        return steps.map((item) => {
-            const pod = this._partOfDay(item);
+        return steps.map(({step, displayTimeSec}) => {
+            const pod = this._partOfDay(step);
             return {
-                time: new Date(item.dt * 1000).toISOString(),
-                temperature: item.main?.temp ?? null,
-                windSpeed: item.wind?.speed ?? null,
-                pop: item.pop ?? null,
-                description: item.weather?.[0]?.description ?? null,
-                conditionCode: this._conditionCode(item, pod),
-                icon: this._icon(item, pod),
+                time: new Date(displayTimeSec * 1000).toISOString(),
+                temperature: step.main?.temp ?? null,
+                windSpeed: step.wind?.speed ?? null,
+                pop: step.pop ?? null,
+                description: step.weather?.[0]?.description ?? null,
+                conditionCode: this._conditionCode(step, pod),
+                icon: this._icon(step, pod),
             };
         });
     }
 
-    // Gộp các bước 3h theo NGÀY ĐỊA PHƯƠNG -> tối đa 5 ngày. temp min/max lấy biên,
+    private _selectHourlySteps(
+        list: OwmStep[],
+        firstSlotSec: number,
+        source: OwmForecastSource
+    ): SelectedHourlyStep[] {
+        if (source !== 'free-3h') {
+            return list
+                .filter((step) =>
+                    step.dt >= firstSlotSec && (step.dt - firstSlotSec) % THREE_HOURS_SECONDS === 0
+                )
+                .map((step) => ({step, displayTimeSec: step.dt}));
+        }
+
+        const selected: SelectedHourlyStep[] = [];
+        for (let displayTimeSec = firstSlotSec; ; displayTimeSec += THREE_HOURS_SECONDS) {
+            const step = list.find((candidate) => candidate.dt >= displayTimeSec);
+            if (!step) break;
+            selected.push({step, displayTimeSec});
+        }
+        return selected;
+    }
+
+    private _normalizeOneCallHourly(list: OwmOneCallHourlyStep[]): OwmStep[] {
+        return list.map((item) => ({
+            dt: item.dt,
+            main: {temp: item.temp},
+            wind: {speed: item.wind_speed},
+            pop: item.pop,
+            weather: item.weather
+        }));
+    }
+
+    // Mốc forecast đầu tiên: đầu giờ địa phương hiện tại cộng 3 giờ, đổi ngược
+    // về Unix UTC để so trực tiếp với `list.dt` của OWM.
+    private _firstForecastSlot(nowSec: number, tzOffsetSec: number): number {
+        const localCurrentHourSec = Math.floor((nowSec + tzOffsetSec) / 3600) * 3600;
+        return localCurrentHourSec - tzOffsetSec + THREE_HOURS_SECONDS;
+    }
+
+    private _toOneCallDaily(list: OwmOneCallDailyStep[], tzOffsetSec: number): DailyForecastPoint[] {
+        return list.slice(0, DAILY_DAYS).map((item) => {
+            const conditionStep: OwmStep = {dt: item.dt, weather: item.weather};
+            return {
+                date: this._localDate(item.dt, tzOffsetSec),
+                tempMin: item.temp?.min ?? null,
+                tempMax: item.temp?.max ?? null,
+                windSpeed: item.wind_speed ?? null,
+                pop: item.pop ?? null,
+                description: item.weather?.[0]?.description ?? null,
+                conditionCode: this._conditionCode(conditionStep, 'd'),
+                icon: this._icon(conditionStep, 'd')
+            };
+        });
+    }
+
+    // Gộp các bước hourly theo NGÀY ĐỊA PHƯƠNG -> tối đa 4 ngày. temp min/max lấy biên,
     // wind/pop lấy max (thiên về cảnh báo), description lấy bước gần 12:00 giờ địa
-    // phương nhất (đại diện ban ngày) — endpoint free không có sẵn tổng hợp theo ngày.
+    // phương nhất (đại diện ban ngày) — endpoint hourly không có sẵn tổng hợp theo ngày.
     // Cùng mốc chia ngày với `hourly` nên `daily[0].date` luôn là ngày của dải giờ.
     private _toDaily(list: OwmStep[], tzOffsetSec: number): DailyForecastPoint[] {
         const byDate = new Map<string, OwmStep[]>();
