@@ -86,7 +86,8 @@ class Server {
     constructor (
         private _useCases: ServerUseCases,
         private _rateLimiter: RateLimiter,
-        private _mapRateLimiter: RateLimiter
+        private _mapRateLimiter: RateLimiter,
+        private _mapTilesEnabled = false
     ) {
         this._registerRouter();
         this._registerErrorHandler();
@@ -306,6 +307,10 @@ class Server {
     }
 
     private async _GET_mapTile (req: Request, res: Response) {
+        if (!this._mapTilesEnabled) {
+            throw new ClientError('Map tiles are temporarily disabled.', 503, 'MAP_TILES_DISABLED')
+        }
+
         const layer = req.params.layer as string;
         const z = parseMapCoordinate(req.params.z as string);
         const x = parseMapCoordinate(req.params.x as string);
