@@ -9,7 +9,8 @@ const OWM_FORECAST_BASE: Record<Exclude<OwmForecastSource, 'onecall-4'>, string>
 };
 const OWM_ONECALL_BASE = 'https://api.openweathermap.org/data/4.0/onecall/timeline';
 const DAILY_DAYS = 5;
-const THREE_HOURS_SECONDS = 3 * 60 * 60;
+const ONE_HOUR_SECONDS = 60 * 60;
+const THREE_HOURS_SECONDS = 3 * ONE_HOUR_SECONDS;
 
 // 1 bước dữ liệu đã chuẩn hoá từ các endpoint forecast OWM.
 type OwmStep = {
@@ -127,7 +128,11 @@ export default class OwmForecastRepositoryImpl implements OwmForecastRepository 
         source: OwmForecastSource
     ): HourlyForecastPoint[] {
         const nowSec = Math.floor(Date.now() / 1000);
-        const firstSlotSec = this._firstForecastSlot(nowSec, tzOffsetSec);
+        // One Call supplies a real record for every hour; legacy products retain 3-hour slots.
+        const slotIntervalSeconds = source === 'onecall-4'
+            ? ONE_HOUR_SECONDS
+            : THREE_HOURS_SECONDS;
+        const firstSlotSec = this._firstForecastSlot(nowSec, tzOffsetSec, slotIntervalSeconds);
         const selectedSteps = this._selectHourlySteps(list, firstSlotSec, source);
         const today = this._localDate(nowSec, tzOffsetSec);
         let steps = selectedSteps.filter((item) =>
@@ -163,10 +168,14 @@ export default class OwmForecastRepositoryImpl implements OwmForecastRepository 
         firstSlotSec: number,
         source: OwmForecastSource
     ): SelectedHourlyStep[] {
+        const slotIntervalSeconds = source === 'onecall-4'
+            ? ONE_HOUR_SECONDS
+            : THREE_HOURS_SECONDS;
+
         if (source !== 'free-3h') {
             return list
                 .filter((step) =>
-                    step.dt >= firstSlotSec && (step.dt - firstSlotSec) % THREE_HOURS_SECONDS === 0
+                    step.dt >= firstSlotSec && (step.dt - firstSlotSec) % slotIntervalSeconds === 0
                 )
                 .map((step) => ({step, displayTimeSec: step.dt}));
         }
@@ -190,11 +199,15 @@ export default class OwmForecastRepositoryImpl implements OwmForecastRepository 
         }));
     }
 
-    // Mốc forecast đầu tiên: đầu giờ địa phương hiện tại cộng 3 giờ, đổi ngược
-    // về Unix UTC để so trực tiếp với `list.dt` của OWM.
-    private _firstForecastSlot(nowSec: number, tzOffsetSec: number): number {
-        const localCurrentHourSec = Math.floor((nowSec + tzOffsetSec) / 3600) * 3600;
-        return localCurrentHourSec - tzOffsetSec + THREE_HOURS_SECONDS;
+    // Mốc forecast đầu tiên: đầu giờ địa phương hiện tại cộng khoảng lấy mẫu của
+    // nguồn, đổi ngược về Unix UTC để so trực tiếp với `list.dt` của OWM.
+    private _firstForecastSlot(
+        nowSec: number,
+        tzOffsetSec: number,
+        intervalSeconds: number
+    ): number {
+        const localCurrentHourSec = Math.floor((nowSec + tzOffsetSec) / ONE_HOUR_SECONDS) * ONE_HOUR_SECONDS;
+        return localCurrentHourSec - tzOffsetSec + intervalSeconds;
     }
 
     private _toOneCallDaily(list: OwmOneCallDailyStep[], tzOffsetSec: number): DailyForecastPoint[] {
