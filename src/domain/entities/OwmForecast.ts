@@ -1,7 +1,7 @@
 // ============================================================================
-// Dữ liệu forecast từ OWM: nguồn hourly có bước 1 giờ, nhưng `hourly` chỉ giữ
-// các mốc thật cách nhau 3h từ đầu giờ địa phương hiện tại + 3h. `daily` = tối
-// đa 4 ngày tổng hợp. Hai mảng chia ngày
+// Dữ liệu forecast từ OWM: One Call giữ mọi mốc hourly thật bắt đầu từ đầu giờ
+// địa phương kế tiếp; các nguồn legacy vẫn dùng mốc 3h. `daily` = tối đa 5 ngày
+// tổng hợp. Hai mảng chia ngày
 // theo cùng 1 mốc nên `daily[0].date` luôn là ngày của dải `hourly`.
 //
 // conditionCode / icon: mã để FE chọn asset, LUÔN có hậu tố ngày/đêm 'd'|'n'.

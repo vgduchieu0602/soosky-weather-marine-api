@@ -82,7 +82,7 @@ test('simulates three-hour product labels from the next free OWM source step', a
     assert.deepEqual(result.hourly.map((point) => point.temperature), [12, 15, 18])
 })
 
-test('maps One Call 4 hourly and daily timelines to the forecast contract', async (t) => {
+test('returns every upcoming One Call hourly record from the next local hour', async (t) => {
     const originalFetch = globalThis.fetch
     const originalDateNow = Date.now
     const sourceConfig = config.owm as ForecastSourceConfig
@@ -131,11 +131,17 @@ test('maps One Call 4 hourly and daily timelines to the forecast contract', asyn
 
     assert.equal(result.timezoneOffsetSeconds, 7 * 60 * 60)
     assert.deepEqual(result.hourly.map((point) => point.time), [
+        '2026-08-05T02:00:00.000Z', // 09:00 local
+        '2026-08-05T03:00:00.000Z', // 10:00 local
         '2026-08-05T04:00:00.000Z', // 11:00 local
+        '2026-08-05T05:00:00.000Z', // 12:00 local
+        '2026-08-05T06:00:00.000Z', // 13:00 local
         '2026-08-05T07:00:00.000Z', // 14:00 local
+        '2026-08-05T08:00:00.000Z', // 15:00 local
+        '2026-08-05T09:00:00.000Z', // 16:00 local
         '2026-08-05T10:00:00.000Z', // 17:00 local
     ])
-    assert.deepEqual(result.hourly.map((point) => point.temperature), [11, 14, 17])
+    assert.deepEqual(result.hourly.map((point) => point.temperature), [9, 10, 11, 12, 13, 14, 15, 16, 17])
     assert.deepEqual(result.daily, [{
         date: '2026-08-05',
         tempMin: 22,
