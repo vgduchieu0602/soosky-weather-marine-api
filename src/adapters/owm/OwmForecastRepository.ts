@@ -8,7 +8,7 @@ const OWM_FORECAST_BASE: Record<Exclude<OwmForecastSource, 'onecall-4'>, string>
     'pro-hourly': 'https://pro.openweathermap.org/data/2.5/forecast/hourly'
 };
 const OWM_ONECALL_BASE = 'https://api.openweathermap.org/data/4.0/onecall/timeline';
-const DAILY_DAYS = 4;
+const DAILY_DAYS = 5;
 const THREE_HOURS_SECONDS = 3 * 60 * 60;
 
 // 1 bước dữ liệu đã chuẩn hoá từ các endpoint forecast OWM.
