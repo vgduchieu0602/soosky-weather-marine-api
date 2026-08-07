@@ -2,7 +2,7 @@ import dotenv from 'dotenv'
 
 export {config as default};
 
-export type OwmForecastSource = 'free-3h' | 'pro-hourly' | 'onecall-4'
+export type OwmForecastSource = 'free-3h' | 'pro-hourly'
 
 /*--------------------------------------------------------------------------*/
 
@@ -22,9 +22,9 @@ dotenv.config({
 /*--------------------------------------------------------------------------*/
 
 function getOwmForecastSource(value: string | undefined): OwmForecastSource {
-    const source = value ?? 'onecall-4'
-    if (source === 'free-3h' || source === 'pro-hourly' || source === 'onecall-4') return source
-    throw new Error('OWM_FORECAST_SOURCE must be free-3h, pro-hourly, or onecall-4.')
+    const source = value ?? 'free-3h'
+    if (source === 'free-3h' || source === 'pro-hourly') return source
+    throw new Error('OWM_FORECAST_SOURCE must be free-3h or pro-hourly.')
 }
 
 /*--------------------------------------------------------------------------*/
