@@ -36,7 +36,7 @@ export interface OwmForecastCacheDoc {
 const schema = new Schema<OwmForecastCacheDoc>({
     lat:    {type: Number, required: true},
     lon:    {type: Number, required: true},
-    forecastSource: {type: String, enum: ['free-3h', 'pro-hourly', 'onecall-4']},
+    forecastSource: {type: String, enum: ['free-3h', 'pro-hourly']},
     timezoneOffsetSeconds: {type: Number, default: 0},
     hourly: {type: [hourlySchema], default: []},
     daily:  {type: [dailySchema], default: []}

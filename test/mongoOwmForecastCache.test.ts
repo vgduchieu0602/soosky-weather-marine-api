@@ -4,7 +4,7 @@ import config from "../src/config";
 import MongoOwmForecastCache from "../src/adapters/mongo/stores/MongoOwmForecastCache";
 import OwmForecastCacheModel from "../src/adapters/mongo/models/OwmForecastCacheModel";
 
-type ForecastSourceConfig = {forecastSource?: "free-3h" | "pro-hourly" | "onecall-4"};
+type ForecastSourceConfig = {forecastSource?: "free-3h" | "pro-hourly"};
 
 test("reads the forecast location timezone offset from cache", async (t) => {
     const originalFindOne = OwmForecastCacheModel.findOne;
@@ -15,7 +15,7 @@ test("reads the forecast location timezone offset from cache", async (t) => {
             hourly: [],
             daily: [],
             timezoneOffsetSeconds: -7 * 60 * 60,
-            forecastSource: "onecall-4",
+            forecastSource: config.owm.forecastSource,
             updatedAt: new Date("2026-08-05T04:30:00.000Z")
         })
     });
@@ -34,7 +34,7 @@ test("treats a legacy forecast cache document without a timezone offset as a cac
             lon: -122.833,
             hourly: [],
             daily: [],
-            forecastSource: "onecall-4",
+            forecastSource: config.owm.forecastSource,
             updatedAt: new Date("2026-08-05T04:30:00.000Z")
         })
     });
@@ -66,7 +66,7 @@ test("writes the forecast location timezone offset to cache", async (t) => {
     );
 
     assert.equal(update.$set.timezoneOffsetSeconds, -7 * 60 * 60);
-    assert.equal(update.$set.forecastSource, "onecall-4");
+    assert.equal(update.$set.forecastSource, config.owm.forecastSource);
 });
 
 test("treats a forecast cached by another source mode as a cache miss", async (t) => {

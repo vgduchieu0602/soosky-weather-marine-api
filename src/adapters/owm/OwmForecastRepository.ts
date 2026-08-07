@@ -3,11 +3,14 @@ import OwmForecastRepository, {OwmForecastQuery} from '../../domain/repositories
 import {OwmForecast, HourlyForecastPoint, DailyForecastPoint} from '../../domain/entities/OwmForecast'
 import {OwmWeatherEntry, PartOfDay, partOfDay, conditionCode, conditionIcon} from './owmCondition'
 
-const OWM_FORECAST_BASE: Record<Exclude<OwmForecastSource, 'onecall-4'>, string> = {
+const OWM_FORECAST_BASE: Record<OwmForecastSource, string> = {
     'free-3h': 'https://api.openweathermap.org/data/2.5/forecast',
     'pro-hourly': 'https://pro.openweathermap.org/data/2.5/forecast/hourly'
 };
-const OWM_ONECALL_BASE = 'https://api.openweathermap.org/data/4.0/onecall/timeline';
+// Daily Forecast 16 days — nguồn daily CHÍNH THỨC của OWM: min/max/pop/description
+// do OWM tổng hợp sẵn theo ngày. Đi kèm endpoint hourly ở chế độ 'pro-hourly'
+// (endpoint hourly chỉ có bước giờ, không có tổng hợp ngày).
+const OWM_DAILY_16_BASE = 'https://api.openweathermap.org/data/2.5/forecast/daily';
 const DAILY_DAYS = 5;
 const ONE_HOUR_SECONDS = 60 * 60;
 const THREE_HOURS_SECONDS = 3 * ONE_HOUR_SECONDS;
@@ -27,100 +30,96 @@ type SelectedHourlyStep = {
     displayTimeSec: number;
 };
 
-type OwmOneCallHourlyStep = {
-    dt: number;
-    temp?: number;
-    wind_speed?: number;
-    pop?: number;
-    weather?: OwmWeatherEntry[];
-};
-
-type OwmOneCallDailyStep = {
+// Daily Forecast 16 days: gió là `speed`, nhiệt độ nằm trong `temp.min`/`temp.max`.
+type OwmDaily16Step = {
     dt: number;
     temp?: {min?: number; max?: number};
-    wind_speed?: number;
+    speed?: number;
     pop?: number;
     weather?: OwmWeatherEntry[];
 };
 
-type OwmOneCallResponse<T> = {
-    timezone_offset?: number;
-    data?: T[];
+// Mọi endpoint data/2.5 (/forecast, /forecast/hourly, /forecast/daily) đều trả
+// `city.timezone` + `list`.
+type OwmForecastListResponse<T> = {
+    city?: {timezone?: number};
+    list?: T[];
 };
 
 export default class OwmForecastRepositoryImpl implements OwmForecastRepository {
     public async getForecast(query: OwmForecastQuery): Promise<OwmForecast> {
-        const source = config.owm.forecastSource;
-        if (source === 'onecall-4') return this._getOneCallForecast(query);
+        if (config.owm.forecastSource === 'pro-hourly') return this._getProForecast(query);
+        return this._getFreeForecast(query);
+    }
 
-        const baseUrl = OWM_FORECAST_BASE[source];
-        const url = `${baseUrl}?lat=${query.lat}&lon=${query.lon}&appid=${config.owm.apiKey}&units=metric`;
-        const resp = await fetch(url);
+    // Free tier: 1 endpoint 5 day/3 hour duy nhất -> hourly lấy thẳng bước 3h,
+    // daily phải gộp tay từ chính các bước đó (free tier không có endpoint daily).
+    private async _getFreeForecast(query: OwmForecastQuery): Promise<OwmForecast> {
+        const resp = await fetch(`${OWM_FORECAST_BASE['free-3h']}?${this._queryString(query)}`);
 
         if (!resp.ok) {
             throw new Error(`OWM forecast request failed: HTTP ${resp.status}`);
         }
 
-        const json: any = await resp.json();
+        const json = await resp.json() as OwmForecastListResponse<OwmStep>;
         const list: OwmStep[] = json.list ?? [];
         // Lệch múi giờ (giây) TẠI toạ độ được hỏi, do OWM trả sẵn. Mọi phép cắt
         // "theo ngày" dùng giờ địa phương này — không dùng UTC, cũng không dùng
         // timezone của máy chạy server.
-        const tzOffsetSec: number = typeof json.city?.timezone === 'number' ? json.city.timezone : 0;
+        const tzOffsetSec = this._cityTimezone(json) ?? 0;
 
         return {
             lat: query.lat,
             lon: query.lon,
             timezoneOffsetSeconds: tzOffsetSec,
-            hourly: this._toHourly(list, tzOffsetSec, source),
-            daily: this._toDaily(list, tzOffsetSec),
+            hourly: this._toHourly(list, tzOffsetSec, 'free-3h'),
+            daily: this._toAggregatedDaily(list, tzOffsetSec),
             updatedAt: new Date().toISOString(),
         };
     }
 
-    private async _getOneCallForecast(query: OwmForecastQuery): Promise<OwmForecast> {
-        const hourlyUrl = this._oneCallUrl('1h', query);
-        const dailyUrl = this._oneCallUrl('1day', query);
+    // Pro: 2 endpoint song song — hourly (Hourly Forecast 4 days) cho dải giờ,
+    // daily (Daily Forecast 16 days, cnt=5) cho 5 ngày. Daily lấy thẳng số OWM
+    // tổng hợp, KHÔNG gộp lại từ bước giờ.
+    // CẢ HAI là sản phẩm trả phí riêng — key chưa subscribe sẽ nhận HTTP 401.
+    private async _getProForecast(query: OwmForecastQuery): Promise<OwmForecast> {
         const [hourlyResponse, dailyResponse] = await Promise.all([
-            fetch(hourlyUrl),
-            fetch(dailyUrl)
+            fetch(`${OWM_FORECAST_BASE['pro-hourly']}?${this._queryString(query)}`),
+            fetch(`${OWM_DAILY_16_BASE}?${this._queryString(query)}&cnt=${DAILY_DAYS}`)
         ]);
 
         if (!hourlyResponse.ok || !dailyResponse.ok) {
             throw new Error(
-                `OWM One Call forecast request failed: hourly HTTP ${hourlyResponse.status}, daily HTTP ${dailyResponse.status}`
+                `OWM forecast request failed: hourly HTTP ${hourlyResponse.status}, daily HTTP ${dailyResponse.status}`
             );
         }
 
         const [hourlyJson, dailyJson] = await Promise.all([
-            hourlyResponse.json() as Promise<OwmOneCallResponse<OwmOneCallHourlyStep>>,
-            dailyResponse.json() as Promise<OwmOneCallResponse<OwmOneCallDailyStep>>
+            hourlyResponse.json() as Promise<OwmForecastListResponse<OwmStep>>,
+            dailyResponse.json() as Promise<OwmForecastListResponse<OwmDaily16Step>>
         ]);
-        const tzOffsetSec = typeof hourlyJson.timezone_offset === 'number'
-            ? hourlyJson.timezone_offset
-            : typeof dailyJson.timezone_offset === 'number' ? dailyJson.timezone_offset : 0;
+        const tzOffsetSec = this._cityTimezone(hourlyJson) ?? this._cityTimezone(dailyJson) ?? 0;
 
         return {
             lat: query.lat,
             lon: query.lon,
             timezoneOffsetSeconds: tzOffsetSec,
-            hourly: this._toHourly(
-                this._normalizeOneCallHourly(hourlyJson.data ?? []),
-                tzOffsetSec,
-                'onecall-4'
-            ),
-            daily: this._toOneCallDaily(dailyJson.data ?? [], tzOffsetSec),
+            hourly: this._toHourly(hourlyJson.list ?? [], tzOffsetSec, 'pro-hourly'),
+            daily: this._toDaily16(dailyJson.list ?? [], tzOffsetSec),
             updatedAt: new Date().toISOString(),
         };
     }
 
-    private _oneCallUrl(step: '1h' | '1day', query: OwmForecastQuery): string {
-        return `${OWM_ONECALL_BASE}/${step}?lat=${query.lat}&lon=${query.lon}&appid=${config.owm.apiKey}&units=metric`;
+    private _queryString(query: OwmForecastQuery): string {
+        return `lat=${query.lat}&lon=${query.lon}&appid=${config.owm.apiKey}&units=metric`;
+    }
+
+    private _cityTimezone(json: OwmForecastListResponse<unknown>): number | null {
+        return typeof json.city?.timezone === 'number' ? json.city.timezone : null;
     }
 
     // Các nhãn sản phẩm cách nhau 3 giờ, từ đầu giờ địa phương hiện tại + 3h.
-    // Pro dùng bản ghi hourly đúng mốc; free gán nhãn giả lập cho bản ghi 3h đầu
-    // tiên không sớm hơn mốc đó để tester có dải giờ giống production.
+    // Free trả sẵn bước 3h; pro trả bước 1h nên chỉ giữ các mốc rơi đúng bội số 3h.
     // Hậu tố ngày/đêm lấy theo ĐÚNG bước đó -> icon đêm cho các bước ban đêm.
     private _toHourly(
         list: OwmStep[],
@@ -128,11 +127,7 @@ export default class OwmForecastRepositoryImpl implements OwmForecastRepository 
         source: OwmForecastSource
     ): HourlyForecastPoint[] {
         const nowSec = Math.floor(Date.now() / 1000);
-        // One Call supplies a real record for every hour; legacy products retain 3-hour slots.
-        const slotIntervalSeconds = source === 'onecall-4'
-            ? ONE_HOUR_SECONDS
-            : THREE_HOURS_SECONDS;
-        const firstSlotSec = this._firstForecastSlot(nowSec, tzOffsetSec, slotIntervalSeconds);
+        const firstSlotSec = this._firstForecastSlot(nowSec, tzOffsetSec, THREE_HOURS_SECONDS);
         const selectedSteps = this._selectHourlySteps(list, firstSlotSec, source);
         const today = this._localDate(nowSec, tzOffsetSec);
         let steps = selectedSteps.filter((item) =>
@@ -163,19 +158,18 @@ export default class OwmForecastRepositoryImpl implements OwmForecastRepository 
         });
     }
 
+    // Pro: bản ghi hourly rơi đúng mốc 3h. Free: mốc 3h của OWM lệch pha với mốc
+    // sản phẩm (OWM chốt 00/03/06... UTC) -> gán nhãn giả lập cho bản ghi đầu tiên
+    // không sớm hơn mốc, để tester có dải giờ giống production.
     private _selectHourlySteps(
         list: OwmStep[],
         firstSlotSec: number,
         source: OwmForecastSource
     ): SelectedHourlyStep[] {
-        const slotIntervalSeconds = source === 'onecall-4'
-            ? ONE_HOUR_SECONDS
-            : THREE_HOURS_SECONDS;
-
-        if (source !== 'free-3h') {
+        if (source === 'pro-hourly') {
             return list
                 .filter((step) =>
-                    step.dt >= firstSlotSec && (step.dt - firstSlotSec) % slotIntervalSeconds === 0
+                    step.dt >= firstSlotSec && (step.dt - firstSlotSec) % THREE_HOURS_SECONDS === 0
                 )
                 .map((step) => ({step, displayTimeSec: step.dt}));
         }
@@ -189,16 +183,6 @@ export default class OwmForecastRepositoryImpl implements OwmForecastRepository 
         return selected;
     }
 
-    private _normalizeOneCallHourly(list: OwmOneCallHourlyStep[]): OwmStep[] {
-        return list.map((item) => ({
-            dt: item.dt,
-            main: {temp: item.temp},
-            wind: {speed: item.wind_speed},
-            pop: item.pop,
-            weather: item.weather
-        }));
-    }
-
     // Mốc forecast đầu tiên: đầu giờ địa phương hiện tại cộng khoảng lấy mẫu của
     // nguồn, đổi ngược về Unix UTC để so trực tiếp với `list.dt` của OWM.
     private _firstForecastSlot(
@@ -210,14 +194,16 @@ export default class OwmForecastRepositoryImpl implements OwmForecastRepository 
         return localCurrentHourSec - tzOffsetSec + intervalSeconds;
     }
 
-    private _toOneCallDaily(list: OwmOneCallDailyStep[], tzOffsetSec: number): DailyForecastPoint[] {
+    // Daily "thật": mỗi phần tử đã là 1 ngày do OWM tổng hợp -> map 1-1, cắt
+    // DAILY_DAYS ngày đầu. Ép hậu tố 'd': 1 điểm đại diện CẢ ngày.
+    private _toDaily16(list: OwmDaily16Step[], tzOffsetSec: number): DailyForecastPoint[] {
         return list.slice(0, DAILY_DAYS).map((item) => {
             const conditionStep: OwmStep = {dt: item.dt, weather: item.weather};
             return {
                 date: this._localDate(item.dt, tzOffsetSec),
                 tempMin: item.temp?.min ?? null,
                 tempMax: item.temp?.max ?? null,
-                windSpeed: item.wind_speed ?? null,
+                windSpeed: item.speed ?? null,
                 pop: item.pop ?? null,
                 description: item.weather?.[0]?.description ?? null,
                 conditionCode: this._conditionCode(conditionStep, 'd'),
@@ -226,11 +212,12 @@ export default class OwmForecastRepositoryImpl implements OwmForecastRepository 
         });
     }
 
-    // Gộp các bước hourly theo NGÀY ĐỊA PHƯƠNG -> tối đa 4 ngày. temp min/max lấy biên,
+    // CHỈ dùng cho 'free-3h' (free tier không có endpoint daily). Gộp các bước 3h
+    // theo NGÀY ĐỊA PHƯƠNG -> tối đa DAILY_DAYS ngày. temp min/max lấy biên,
     // wind/pop lấy max (thiên về cảnh báo), description lấy bước gần 12:00 giờ địa
-    // phương nhất (đại diện ban ngày) — endpoint hourly không có sẵn tổng hợp theo ngày.
+    // phương nhất (đại diện ban ngày).
     // Cùng mốc chia ngày với `hourly` nên `daily[0].date` luôn là ngày của dải giờ.
-    private _toDaily(list: OwmStep[], tzOffsetSec: number): DailyForecastPoint[] {
+    private _toAggregatedDaily(list: OwmStep[], tzOffsetSec: number): DailyForecastPoint[] {
         const byDate = new Map<string, OwmStep[]>();
         for (const item of list) {
             const date = this._localDate(item.dt, tzOffsetSec);

@@ -1,9 +1,9 @@
-import assert from 'node:assert/strict'
+﻿import assert from 'node:assert/strict'
 import test from 'node:test'
 import config from '../src/config'
 import OwmForecastRepository from '../src/adapters/owm/OwmForecastRepository'
 
-type ForecastSourceConfig = {forecastSource?: 'free-3h' | 'pro-hourly' | 'onecall-4'}
+type ForecastSourceConfig = {forecastSource?: 'free-3h' | 'pro-hourly'}
 
 test('uses actual hourly OWM data for the three-hour product slots in Pro mode', async (t) => {
     const originalFetch = globalThis.fetch
@@ -20,13 +20,29 @@ test('uses actual hourly OWM data for the three-hour product slots in Pro mode',
 
     globalThis.fetch = async (url) => {
         const requestedUrl = new URL(String(url))
-        assert.equal(requestedUrl.origin, 'https://pro.openweathermap.org')
-        assert.equal(requestedUrl.pathname, '/data/2.5/forecast/hourly')
         assert.equal(requestedUrl.searchParams.get('units'), 'metric')
-        return new Response(JSON.stringify({
-            city: {timezone: 7 * 60 * 60},
-            list,
-        }))
+        if (requestedUrl.pathname === '/data/2.5/forecast/hourly') {
+            assert.equal(requestedUrl.origin, 'https://pro.openweathermap.org')
+            return new Response(JSON.stringify({
+                city: {timezone: 7 * 60 * 60},
+                list,
+            }))
+        }
+        if (requestedUrl.pathname === '/data/2.5/forecast/daily') {
+            assert.equal(requestedUrl.origin, 'https://api.openweathermap.org')
+            assert.equal(requestedUrl.searchParams.get('cnt'), '5')
+            return new Response(JSON.stringify({
+                city: {timezone: 7 * 60 * 60},
+                list: [{
+                    dt: Date.parse('2026-08-05T05:00:00.000Z') / 1000,
+                    temp: {min: 24, max: 33},
+                    speed: 4.2,
+                    pop: 0.35,
+                    weather: [{id: 802, description: 'scattered clouds', icon: '03d'}]
+                }]
+            }))
+        }
+        throw new Error(`unexpected forecast URL: ${requestedUrl.pathname}`)
     }
     t.after(() => {
         globalThis.fetch = originalFetch
@@ -42,6 +58,17 @@ test('uses actual hourly OWM data for the three-hour product slots in Pro mode',
         '2026-08-05T07:00:00.000Z', // 14:00 local
         '2026-08-05T10:00:00.000Z', // 17:00 local
     ])
+    // daily láº¥y tháº³ng tá»« Daily Forecast 16 days, KHÃ”NG gá»™p láº¡i tá»« bÆ°á»›c giá».
+    assert.deepEqual(result.daily, [{
+        date: '2026-08-05',
+        tempMin: 24,
+        tempMax: 33,
+        windSpeed: 4.2,
+        pop: 0.35,
+        description: 'scattered clouds',
+        conditionCode: '802d',
+        icon: '03d'
+    }])
 })
 
 test('simulates three-hour product labels from the next free OWM source step', async (t) => {
@@ -82,45 +109,43 @@ test('simulates three-hour product labels from the next free OWM source step', a
     assert.deepEqual(result.hourly.map((point) => point.temperature), [12, 15, 18])
 })
 
-test('returns every upcoming One Call hourly record from the next local hour', async (t) => {
+test('aggregates free three-hour steps into local-day daily points', async (t) => {
     const originalFetch = globalThis.fetch
     const originalDateNow = Date.now
     const sourceConfig = config.owm as ForecastSourceConfig
     const originalSource = sourceConfig.forecastSource
-    sourceConfig.forecastSource = 'onecall-4'
+    sourceConfig.forecastSource = 'free-3h'
     Date.now = () => Date.parse('2026-08-05T01:50:00.000Z') // 08:50 UTC+7
 
-    globalThis.fetch = async (url) => {
-        const urlText = String(url)
-        if (urlText.includes('/data/4.0/onecall/timeline/1h')) {
-            const requestedUrl = new URL(urlText)
-            assert.equal(requestedUrl.origin, 'https://api.openweathermap.org')
-            assert.equal(requestedUrl.searchParams.get('units'), 'metric')
-            return new Response(JSON.stringify({
-                timezone_offset: 7 * 60 * 60,
-                data: Array.from({length: 9}, (_, index) => ({
-                    dt: Date.parse('2026-08-05T02:00:00.000Z') / 1000 + index * 60 * 60,
-                    temp: 9 + index,
-                    wind_speed: 2 + index,
-                    pop: index / 10,
-                    weather: [{id: 800, description: 'clear sky', icon: '01d'}]
-                }))
-            }))
-        }
-        if (urlText.includes('/data/4.0/onecall/timeline/1day')) {
-            return new Response(JSON.stringify({
-                timezone_offset: 7 * 60 * 60,
-                data: [{
-                    dt: Date.parse('2026-08-05T05:00:00.000Z') / 1000,
-                    temp: {min: 22, max: 31},
-                    wind_speed: 5,
-                    pop: 0.4,
-                    weather: [{id: 801, description: 'few clouds', icon: '02d'}]
-                }]
-            }))
-        }
-        throw new Error(`unexpected forecast URL: ${urlText.split('?')[0]}`)
-    }
+    globalThis.fetch = async () => new Response(JSON.stringify({
+        city: {timezone: 7 * 60 * 60},
+        list: [
+            // 09:00 -> 21:00 giờ địa phương ngày 05
+            {dt: Date.parse('2026-08-05T02:00:00.000Z') / 1000, main: {temp: 26, temp_min: 25, temp_max: 27}},
+            {
+                dt: Date.parse('2026-08-05T05:00:00.000Z') / 1000, // 12:00 local -> bước đại diện
+                main: {temp: 30, temp_min: 29, temp_max: 31},
+                wind: {speed: 5},
+                pop: 0.4,
+                weather: [{id: 500, description: 'light rain', icon: '10d'}]
+            },
+            {
+                dt: Date.parse('2026-08-05T08:00:00.000Z') / 1000,
+                main: {temp: 31, temp_min: 30, temp_max: 33},
+                wind: {speed: 7},
+                pop: 0.6,
+                weather: [{id: 501, description: 'moderate rain', icon: '10d'}]
+            },
+            {dt: Date.parse('2026-08-05T11:00:00.000Z') / 1000, main: {temp: 28, temp_min: 27, temp_max: 29}, wind: {speed: 4}, pop: 0.2},
+            {dt: Date.parse('2026-08-05T14:00:00.000Z') / 1000, main: {temp: 26, temp_min: 25, temp_max: 26}},
+            // 00:00 giờ địa phương -> đã sang ngày 06
+            {
+                dt: Date.parse('2026-08-05T17:00:00.000Z') / 1000,
+                main: {temp: 24, temp_min: 23, temp_max: 25},
+                weather: [{id: 801, description: 'few clouds', icon: '02n'}]
+            }
+        ]
+    }))
     t.after(() => {
         globalThis.fetch = originalFetch
         Date.now = originalDateNow
@@ -129,27 +154,28 @@ test('returns every upcoming One Call hourly record from the next local hour', a
 
     const result = await new OwmForecastRepository().getForecast({lat: 10, lon: 106})
 
-    assert.equal(result.timezoneOffsetSeconds, 7 * 60 * 60)
-    assert.deepEqual(result.hourly.map((point) => point.time), [
-        '2026-08-05T02:00:00.000Z', // 09:00 local
-        '2026-08-05T03:00:00.000Z', // 10:00 local
-        '2026-08-05T04:00:00.000Z', // 11:00 local
-        '2026-08-05T05:00:00.000Z', // 12:00 local
-        '2026-08-05T06:00:00.000Z', // 13:00 local
-        '2026-08-05T07:00:00.000Z', // 14:00 local
-        '2026-08-05T08:00:00.000Z', // 15:00 local
-        '2026-08-05T09:00:00.000Z', // 16:00 local
-        '2026-08-05T10:00:00.000Z', // 17:00 local
+    // min/max lấy biên cả ngày, wind/pop lấy max, description lấy bước gần 12:00
+    // giờ địa phương nhất. Icon luôn ép hậu tố 'd' dù bước nguồn là ban đêm.
+    assert.deepEqual(result.daily, [
+        {
+            date: '2026-08-05',
+            tempMin: 25,
+            tempMax: 33,
+            windSpeed: 7,
+            pop: 0.6,
+            description: 'light rain',
+            conditionCode: '500d',
+            icon: '10d'
+        },
+        {
+            date: '2026-08-06',
+            tempMin: 23,
+            tempMax: 25,
+            windSpeed: null,
+            pop: null,
+            description: 'few clouds',
+            conditionCode: '801d',
+            icon: '02d'
+        }
     ])
-    assert.deepEqual(result.hourly.map((point) => point.temperature), [9, 10, 11, 12, 13, 14, 15, 16, 17])
-    assert.deepEqual(result.daily, [{
-        date: '2026-08-05',
-        tempMin: 22,
-        tempMax: 31,
-        windSpeed: 5,
-        pop: 0.4,
-        description: 'few clouds',
-        conditionCode: '801d',
-        icon: '02d'
-    }])
 })
