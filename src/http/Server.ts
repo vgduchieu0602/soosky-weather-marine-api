@@ -43,11 +43,11 @@ const NOAA_STATION_ID = /^\d{7}$/;
 // là vừa tốn quota vừa phình cache. 7 ngày đủ cho biểu đồ tide của FE.
 const MAX_TIDE_DAYS = 7;
 
-// Map của FE chỉ hỗ trợ 5 mức zoom. Với tile Web Mercator ở zoom z, x/y luôn
-// là số nguyên trong [0, 2^z - 1]; chặn trước khi gọi OWM để input client sai
-// trả 400 thay vì biến thành lỗi upstream 502.
-const MIN_MAP_ZOOM = 1;
-const MAX_MAP_ZOOM = 5;
+// Dải zoom map của FE: 3 (nhìn cả vùng biển) tới 12 (chi tiết ven bờ). Với tile
+// Web Mercator ở zoom z, x/y luôn là số nguyên trong [0, 2^z - 1]; chặn trước
+// khi gọi OWM để input client sai trả 400 thay vì biến thành lỗi upstream 502.
+const MIN_MAP_ZOOM = 3;
+const MAX_MAP_ZOOM = 12;
 
 /*----------------------------------------------------------------------------------------*/
 

@@ -37,15 +37,15 @@ async function expectBadTileRequest (params: Record<string, string>) {
 }
 
 test('rejects a map zoom below the configured minimum', async () => {
-    await expectBadTileRequest({layer: 'temperature', z: '0', x: '0', y: '0'})
+    await expectBadTileRequest({layer: 'temperature', z: '2', x: '0', y: '0'})
 })
 
 test('rejects a map zoom above the configured maximum', async () => {
-    await expectBadTileRequest({layer: 'temperature', z: '6', x: '2', y: '6'})
+    await expectBadTileRequest({layer: 'temperature', z: '13', x: '2', y: '6'})
 })
 
 test('rejects an x coordinate outside the tile range for its zoom', async () => {
-    await expectBadTileRequest({layer: 'temperature', z: '1', x: '2', y: '1'})
+    await expectBadTileRequest({layer: 'temperature', z: '3', x: '8', y: '1'})
 })
 
 test('rejects a negative x coordinate', async () => {
@@ -68,11 +68,11 @@ test('passes a valid map tile request to the map use case', async () => {
     })
 
     await (server as any)._GET_mapTile(
-        {params: {layer: 'temperature', z: '1', x: '1', y: '0'}},
+        {params: {layer: 'temperature', z: '3', x: '1', y: '0'}},
         mapResponse()
     )
 
-    assert.deepEqual(requests, [{layer: 'temperature', z: 1, x: 1, y: 0}])
+    assert.deepEqual(requests, [{layer: 'temperature', z: 3, x: 1, y: 0}])
 })
 
 test('does not invoke the map use case when map tiles are disabled', async () => {
@@ -84,7 +84,7 @@ test('does not invoke the map use case when map tiles are disabled', async () =>
 
     await assert.rejects(
         () => (server as any)._GET_mapTile(
-            {params: {layer: 'temperature', z: '1', x: '1', y: '0'}},
+            {params: {layer: 'temperature', z: '3', x: '1', y: '0'}},
             mapResponse()
         ),
         (err: unknown) => err instanceof ClientError && err.statusCode === 503 && err.code === 'MAP_TILES_DISABLED'
