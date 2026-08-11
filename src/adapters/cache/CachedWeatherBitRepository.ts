@@ -44,6 +44,19 @@ export default class CachedWeatherBitRepository implements WeatherBitRepository 
         try {
             fresh = await this._source.getWeatherBitCurrent(query)
         } catch (err) {
+            if (entry) {
+                recordDataSource({ source: 'weatherbit', status: 'stale-cache', dataFetchedAt: entry.fetchedAt })
+                console.warn(`[weatherbit] refetch failed -> serving stale cache: ${(err as Error)?.message ?? err}`)
+                return {
+                    lat: query.lat,
+                    lon: query.lon,
+                    temperature: entry.temperature,
+                    humidity: entry.humidity,
+                    dewPoint: entry.dewPoint,
+                    uvIndex: entry.uvIndex,
+                    updatedAt: entry.humidityUpdatedAt
+                }
+            }
             recordDataSource({ source: 'weatherbit', status: 'unavailable', dataFetchedAt: null })
             throw err
         }
