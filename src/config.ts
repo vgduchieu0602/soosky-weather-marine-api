@@ -27,6 +27,12 @@ function getOwmForecastSource(value: string | undefined): OwmForecastSource {
     throw new Error('OWM_FORECAST_SOURCE must be free-3h or pro-hourly.')
 }
 
+function getNonNegativeInteger(value: string | undefined, defaultValue: number): number {
+    if (value === undefined || value.trim() === '') return defaultValue
+    const parsed = Number(value)
+    return Number.isInteger(parsed) && parsed >= 0 ? parsed : defaultValue
+}
+
 /*--------------------------------------------------------------------------*/
 
 const config = {
@@ -41,7 +47,7 @@ const config = {
     ndbc: {
         activeStationsUrl: process.env.NDBC_ACTIVE_STATIONS_URL || 'https://www.ndbc.noaa.gov/activestations.xml',
         fetchTimeoutMs: parseInt(process.env.NDBC_FETCH_TIMEOUT_MS || '') || 20000,
-        retries: parseInt(process.env.NDBC_FETCH_RETRIES || '') || 3
+        retries: getNonNegativeInteger(process.env.NDBC_FETCH_RETRIES, 3)
     },
     sync: {
         intervalMs: parseInt(process.env.BUOY_SYNC_INTERVAL_MS || '') || 86400000,

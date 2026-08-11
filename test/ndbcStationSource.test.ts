@@ -2,6 +2,19 @@ import assert from 'node:assert/strict'
 import test from 'node:test'
 import NdbcStationSource from '../src/adapters/ndbc/NdbcStationSource'
 
+test('NdbcStationSource configuration preserves zero retries', async (t) => {
+    const originalRetries = process.env.NDBC_FETCH_RETRIES
+    process.env.NDBC_FETCH_RETRIES = '0'
+    t.after(() => {
+        if (originalRetries === undefined) delete process.env.NDBC_FETCH_RETRIES
+        else process.env.NDBC_FETCH_RETRIES = originalRetries
+    })
+
+    const { default: config } = await import(`../src/config.ts?retry-zero=${Date.now()}`)
+
+    assert.equal(config.ndbc.retries, 0)
+})
+
 test('NdbcStationSource retries a failed active-stations request and returns the parsed station', async (t) => {
     const originalFetch = globalThis.fetch
     let attempts = 0
