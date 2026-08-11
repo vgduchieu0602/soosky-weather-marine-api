@@ -1,5 +1,6 @@
 import type { AnyBulkWriteOperation } from 'mongoose'
 import BuoyStationRepository from '../../../domain/repositories/IBuoyStationRepository'
+import BuoyStationSyncStore, { SyncStats } from '../../../domain/repositories/IBuoyStationSyncStore'
 import { BuoyStation } from '../../../domain/entities/BuoyStation'
 import BuoyStationModel, { BuoyStationDoc } from '../models/BuoyStationModel'
 
@@ -7,7 +8,7 @@ import BuoyStationModel, { BuoyStationDoc } from '../models/BuoyStationModel'
 // nhật mỗi vòng; lazy seed của API cũng set lastSeenAt=now.
 const STALE_MS = 30 * 24 * 60 * 60 * 1000 // 30 ngày
 
-export default class MongoBuoyStationStore implements BuoyStationRepository {
+export default class MongoBuoyStationStore implements BuoyStationRepository, BuoyStationSyncStore {
     public async listAll(): Promise<BuoyStation[]> {
         const cutoff = new Date(Date.now() - STALE_MS)
         const docs = await BuoyStationModel
@@ -70,5 +71,71 @@ export default class MongoBuoyStationStore implements BuoyStationRepository {
             }
         }))
         await BuoyStationModel.bulkWrite(ops, { ordered: false })
+    }
+
+    public async upsertChanged(stations: BuoyStation[], now: Date): Promise<SyncStats> {
+        const existing = await BuoyStationModel
+            .find({}, { buoyId: 1, name: 1, lat: 1, lon: 1 })
+            .lean()
+        const existingByBuoyId = new Map(existing.map((station) => [station.buoyId, station]))
+        const stats: SyncStats = { total: stations.length, created: 0, changed: 0, unchanged: 0 }
+        const ops: AnyBulkWriteOperation<BuoyStationDoc>[] = stations.map((station) => {
+            const current = existingByBuoyId.get(station.buoyId)
+            if (!current) {
+                stats.created += 1
+                return {
+                    updateOne: {
+                        filter: { buoyId: station.buoyId },
+                        update: {
+                            $set: {
+                                name: station.name,
+                                lat: station.lat,
+                                lon: station.lon,
+                                lastSeenAt: now,
+                                changedAt: now
+                            },
+                            $setOnInsert: {
+                                source: 'ndbc',
+                                firstSeenAt: now
+                            }
+                        },
+                        upsert: true
+                    }
+                }
+            }
+
+            if (current.name !== station.name || current.lat !== station.lat || current.lon !== station.lon) {
+                stats.changed += 1
+                return {
+                    updateOne: {
+                        filter: { buoyId: station.buoyId },
+                        update: {
+                            $set: {
+                                name: station.name,
+                                lat: station.lat,
+                                lon: station.lon,
+                                lastSeenAt: now,
+                                changedAt: now
+                            }
+                        },
+                        upsert: false
+                    }
+                }
+            }
+
+            stats.unchanged += 1
+            return {
+                updateOne: {
+                    filter: { buoyId: station.buoyId },
+                    update: { $set: { lastSeenAt: now } },
+                    upsert: false
+                }
+            }
+        })
+
+        if (ops.length > 0) {
+            await BuoyStationModel.bulkWrite(ops, { ordered: false })
+        }
+        return stats
     }
 }

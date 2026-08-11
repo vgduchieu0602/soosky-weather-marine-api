@@ -59,6 +59,7 @@ const {
 } = config;
 
 const TWO_MINUTES = 2 * 60 * 1000;
+const FIVE_MINUTES = 5 * 60 * 1000;
 const SIX_MINUTES = 6 * 60 * 1000;
 const TEN_MINUTES = 10 * 60 * 1000;
 const FIFTEEN_MINUTES = 15 * 60 * 1000;
@@ -72,10 +73,10 @@ const ONE_DAY = 24 * ONE_HOUR;
 const WEATHER_CACHE_TTL = {
     test: {
         ndbc: SIX_MINUTES,
-        weatherBitHumidity: TEN_MINUTES,
-        weatherBitUv: TEN_MINUTES,
-        owmForecast: FIFTEEN_MINUTES,
-        owmCurrent: FIFTEEN_MINUTES
+        weatherBitHumidity: FIVE_MINUTES,
+        weatherBitUv: FIVE_MINUTES,
+        owmForecast: FIVE_MINUTES,
+        owmCurrent: FIVE_MINUTES
     },
     normal: {
         ndbc: THIRTY_MINUTES,

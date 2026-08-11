@@ -27,6 +27,12 @@ function getOwmForecastSource(value: string | undefined): OwmForecastSource {
     throw new Error('OWM_FORECAST_SOURCE must be free-3h or pro-hourly.')
 }
 
+function getNonNegativeInteger(value: string | undefined, defaultValue: number): number {
+    if (value === undefined || value.trim() === '') return defaultValue
+    const parsed = Number(value)
+    return Number.isInteger(parsed) && parsed >= 0 ? parsed : defaultValue
+}
+
 /*--------------------------------------------------------------------------*/
 
 const config = {
@@ -35,7 +41,17 @@ const config = {
         host:          process.env.HTTP_HOST || '0.0.0.0'
     },
     mongo: {
-        uri: process.env.MONGO_URI
+        uri: process.env.MONGO_URI,
+        maxPoolSize: parseInt(process.env.MONGO_MAX_POOL_SIZE || '') || 5
+    },
+    ndbc: {
+        activeStationsUrl: process.env.NDBC_ACTIVE_STATIONS_URL || 'https://www.ndbc.noaa.gov/activestations.xml',
+        fetchTimeoutMs: parseInt(process.env.NDBC_FETCH_TIMEOUT_MS || '') || 20000,
+        retries: getNonNegativeInteger(process.env.NDBC_FETCH_RETRIES, 3)
+    },
+    sync: {
+        intervalMs: parseInt(process.env.BUOY_SYNC_INTERVAL_MS || '') || 86400000,
+        runOnBoot: process.env.BUOY_SYNC_RUN_ON_BOOT?.toLowerCase() !== 'false'
     },
     owm: {
         apiKey: process.env.OWM_API_KEY,
