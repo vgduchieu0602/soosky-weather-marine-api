@@ -1,6 +1,6 @@
 export default class Scheduler {
     private _interval: ReturnType<typeof setInterval> | undefined
-    private _running = false
+    private _activeTick: Promise<void> | undefined
 
     public constructor(
         private readonly _intervalMs: number,
@@ -10,26 +10,33 @@ export default class Scheduler {
     public start(runOnBoot: boolean): void {
         if (this._interval) return
 
-        if (runOnBoot) void this._tick()
-        this._interval = setInterval(() => { void this._tick() }, this._intervalMs)
+        if (runOnBoot) this._tick()
+        this._interval = setInterval(() => { this._tick() }, this._intervalMs)
     }
 
-    public stop(): void {
-        if (!this._interval) return
-        clearInterval(this._interval)
-        this._interval = undefined
+    public async stop(): Promise<void> {
+        if (this._interval) {
+            clearInterval(this._interval)
+            this._interval = undefined
+        }
+        await this._activeTick
     }
 
-    private async _tick(): Promise<void> {
-        if (this._running) return
+    private _tick(): void {
+        if (this._activeTick) return
 
-        this._running = true
+        const activeTick = this._runTask()
+        this._activeTick = activeTick
+        void activeTick.finally(() => {
+            if (this._activeTick === activeTick) this._activeTick = undefined
+        })
+    }
+
+    private async _runTask(): Promise<void> {
         try {
             await this._task()
         } catch (error) {
             console.error('Scheduled task failed.', error)
-        } finally {
-            this._running = false
         }
     }
 }

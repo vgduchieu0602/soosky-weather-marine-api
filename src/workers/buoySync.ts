@@ -26,7 +26,7 @@ async function main(): Promise<void> {
     const shutdown = async (): Promise<void> => {
         if (shuttingDown) return
         shuttingDown = true
-        scheduler.stop()
+        await scheduler.stop()
         await mongoose.disconnect()
     }
 

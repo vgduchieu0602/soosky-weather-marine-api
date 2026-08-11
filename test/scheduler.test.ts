@@ -69,6 +69,44 @@ test('contains a rejected task and runs a later tick', async () => {
     }
 })
 
+test('stop clears the interval and waits for an active task to drain', async () => {
+    let releaseTask!: () => void
+    let taskStarted!: () => void
+    const started = new Promise<void>((resolve) => { taskStarted = resolve })
+    const originalSetInterval = globalThis.setInterval
+    const originalClearInterval = globalThis.clearInterval
+    const clearedIntervals: NodeJS.Timeout[] = []
+
+    globalThis.setInterval = (() => 789 as unknown as NodeJS.Timeout) as typeof setInterval
+    globalThis.clearInterval = ((timer: NodeJS.Timeout) => {
+        clearedIntervals.push(timer)
+    }) as typeof clearInterval
+
+    try {
+        const scheduler = new Scheduler(1000, async () => {
+            taskStarted()
+            await new Promise<void>((resolve) => { releaseTask = resolve })
+        })
+        scheduler.start(true)
+        await started
+
+        let stopped = false
+        const stopping = Promise.resolve(scheduler.stop()).then(() => { stopped = true })
+        await Promise.resolve()
+
+        assert.equal(stopped, false)
+        assert.deepEqual(clearedIntervals, [789 as unknown as NodeJS.Timeout])
+
+        releaseTask()
+        await stopping
+        assert.equal(stopped, true)
+    } finally {
+        releaseTask?.()
+        globalThis.setInterval = originalSetInterval
+        globalThis.clearInterval = originalClearInterval
+    }
+})
+
 test('can start again after stopping', () => {
     const scheduledIntervals: number[] = []
     const clearedIntervals: NodeJS.Timeout[] = []

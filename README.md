@@ -13,10 +13,10 @@ The API remains available on `127.0.0.1:3002`; the `buoy-sync` worker never expo
 Run:
 
 ```powershell
-npm.cmd test
+npm.cmd test -- --test-concurrency=1
 npm.cmd run build
-if (!(Test-Path 'dist/app.js') -or !(Test-Path 'dist/buoy-sync.js')) { throw 'Both API and worker bundles must exist.' }
-docker compose config
+node scripts/assert-build-output.mjs
+docker compose config --quiet
 ```
 
 After startup, confirm the worker has completed a sync:
@@ -26,6 +26,8 @@ docker compose logs buoy-sync
 ```
 
 Its successful run is logged as `Buoy sync complete: total=... created=... changed=... unchanged=...`.
+
+Worker settings use `MONGO_MAX_POOL_SIZE`, `NDBC_FETCH_TIMEOUT_MS`, `NDBC_FETCH_RETRIES`, `SYNC_INTERVAL_MS`, and `SYNC_RUN_ON_BOOT`. Numeric values must be integers; pool size, fetch timeout, and sync interval must be greater than zero, while retries may be zero.
 
 ## VPS rollout
 
@@ -53,6 +55,15 @@ Its successful run is logged as `Buoy sync complete: total=... created=... chang
    curl.exe -f http://127.0.0.1:3002/health
    ```
 
-4. Only after the worker completion log and Docker API health check succeed, retire the legacy buoy scheduler using its known, explicitly identified process or service name.
+4. Only after the worker completion log and Docker API health check succeed, check for the known legacy scheduler `soosky-bot-weather-marine`. If the pre-check succeeds, stop and delete only that process, then save the PM2 process list:
+
+   ```powershell
+   pm2 describe soosky-bot-weather-marine
+   if ($LASTEXITCODE -eq 0) {
+       pm2 stop soosky-bot-weather-marine
+       pm2 delete soosky-bot-weather-marine
+       pm2 save
+   }
+   ```
 
 Do not use a blanket PM2 deletion command. Identify the intended scheduler first and stop only that known process.
