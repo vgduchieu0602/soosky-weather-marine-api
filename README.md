@@ -29,9 +29,30 @@ Its successful run is logged as `Buoy sync complete: total=... created=... chang
 
 ## VPS rollout
 
-1. Deploy the new code and its `.env` values, then build and start both services together: `docker compose up -d --build api buoy-sync`.
-2. Inspect `docker compose logs buoy-sync` and wait for the successful completion log above.
-3. Only after that verification, retire the legacy buoy scheduler using its known, explicitly identified process or service name.
-4. During the controlled switch to Docker API, stop `weather-marine-api` PM2 only if it is holding port 3002. It is the old API process, not the legacy buoy scheduler.
+1. Deploy the new code and its `.env` values, then build the shared image without starting either service:
 
-Do not use a blanket PM2 deletion command: identify the intended legacy scheduler first, and stop only that known process. Keep the prior API process available until the Docker `api` service is ready to take over port 3002.
+   ```powershell
+   docker compose build
+   ```
+
+2. Start the no-port worker while the existing PM2 API continues to hold port 3002, then inspect its logs:
+
+   ```powershell
+   docker compose up -d buoy-sync
+   docker compose logs --tail=100 buoy-sync
+   ```
+
+   Wait for `Buoy sync complete: total=... created=... changed=... unchanged=...` before continuing.
+
+3. Identify `weather-marine-api` in `pm2 status`. It is the old API process, not the legacy buoy scheduler. During the controlled port-3002 cutover, stop only that identified API process and immediately start and verify Docker `api`:
+
+   ```powershell
+   pm2 stop weather-marine-api
+   docker compose up -d api
+   docker compose ps api
+   curl.exe -f http://127.0.0.1:3002/health
+   ```
+
+4. Only after the worker completion log and Docker API health check succeed, retire the legacy buoy scheduler using its known, explicitly identified process or service name.
+
+Do not use a blanket PM2 deletion command. Identify the intended scheduler first and stop only that known process.
