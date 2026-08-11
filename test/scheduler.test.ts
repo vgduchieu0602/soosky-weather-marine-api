@@ -34,27 +34,64 @@ test('skips overlapping ticks while a task is pending', async () => {
     }
 })
 
-test('starts an interval and clears it when stopped', () => {
-    let scheduledInterval: number | undefined
-    let clearedInterval: NodeJS.Timeout | undefined
+test('contains a rejected task and runs a later tick', async () => {
+    let invocations = 0
+    let intervalTick!: () => void
+    const originalSetInterval = globalThis.setInterval
+    const originalClearInterval = globalThis.clearInterval
+    const originalConsoleError = console.error
+
+    globalThis.setInterval = ((tick: () => void) => {
+        intervalTick = tick
+        return 456 as unknown as NodeJS.Timeout
+    }) as typeof setInterval
+    globalThis.clearInterval = (() => {}) as typeof clearInterval
+    console.error = () => {}
+
+    try {
+        const scheduler = new Scheduler(2500, async () => {
+            invocations += 1
+            if (invocations === 1) throw new Error('transient failure')
+        })
+
+        scheduler.start(true)
+        await Promise.resolve()
+        await Promise.resolve()
+        intervalTick()
+        await Promise.resolve()
+
+        assert.equal(invocations, 2)
+        scheduler.stop()
+    } finally {
+        globalThis.setInterval = originalSetInterval
+        globalThis.clearInterval = originalClearInterval
+        console.error = originalConsoleError
+    }
+})
+
+test('can start again after stopping', () => {
+    const scheduledIntervals: number[] = []
+    const clearedIntervals: NodeJS.Timeout[] = []
     const originalSetInterval = globalThis.setInterval
     const originalClearInterval = globalThis.clearInterval
 
     globalThis.setInterval = ((_tick: () => void, intervalMs: number) => {
-        scheduledInterval = intervalMs
-        return 456 as unknown as NodeJS.Timeout
+        scheduledIntervals.push(intervalMs)
+        return (455 + scheduledIntervals.length) as unknown as NodeJS.Timeout
     }) as typeof setInterval
     globalThis.clearInterval = ((timer: NodeJS.Timeout) => {
-        clearedInterval = timer
+        clearedIntervals.push(timer)
     }) as typeof clearInterval
 
     try {
         const scheduler = new Scheduler(2500, async () => {})
         scheduler.start(false)
         scheduler.stop()
+        scheduler.start(false)
+        scheduler.stop()
 
-        assert.equal(scheduledInterval, 2500)
-        assert.equal(clearedInterval, 456 as unknown as NodeJS.Timeout)
+        assert.deepEqual(scheduledIntervals, [2500, 2500])
+        assert.deepEqual(clearedIntervals, [456, 457].map((value) => value as unknown as NodeJS.Timeout))
     } finally {
         globalThis.setInterval = originalSetInterval
         globalThis.clearInterval = originalClearInterval

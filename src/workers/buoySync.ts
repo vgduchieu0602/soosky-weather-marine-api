@@ -30,8 +30,13 @@ async function main(): Promise<void> {
         await mongoose.disconnect()
     }
 
-    process.once('SIGINT', () => { void shutdown() })
-    process.once('SIGTERM', () => { void shutdown() })
+    const handleShutdownFailure = (error: unknown): void => {
+        console.error('Buoy sync worker failed during shutdown.', error)
+        process.exitCode = 1
+    }
+
+    process.once('SIGINT', () => { void shutdown().catch(handleShutdownFailure) })
+    process.once('SIGTERM', () => { void shutdown().catch(handleShutdownFailure) })
     scheduler.start(config.sync.runOnBoot)
 }
 
