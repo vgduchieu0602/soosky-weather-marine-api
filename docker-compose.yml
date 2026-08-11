@@ -10,3 +10,11 @@ services:
       - .env
     # 24/7: tự khởi động lại khi crash hoặc khi VPS reboot (thay cho pm2).
     restart: unless-stopped
+
+  buoy-sync:
+    build: .
+    image: soosky-weather-marine-api
+    env_file:
+      - .env
+    command: node dist/buoy-sync.js
+    restart: unless-stopped
