@@ -22,8 +22,9 @@ function isSameUtcDay (freshAt: Date | string): boolean {
     return new Date(freshAt).toISOString().slice(0, 10) === new Date().toISOString().slice(0, 10)
 }
 
-export interface CacheAsideOptions {
+export interface CacheAsideOptions<V> {
     expiresOnUtcDayChange?: boolean;
+    ttlMsForValue?: (value: V) => number;
 }
 
 // Cache còn tươi -> trả cache; hết hạn/trống -> gọi source, ghi cache, trả về.
@@ -35,11 +36,12 @@ export async function cacheAside<Q, V>(
     ttlMs: number,
     fetchFresh: () => Promise<V>,
     source: string,
-    options: CacheAsideOptions = {}
+    options: CacheAsideOptions<V> = {}
 ): Promise<V> {
     const hit = await store.read(query);
     const sameDay = !options.expiresOnUtcDayChange || (!!hit?.freshAt && isSameUtcDay(hit.freshAt));
-    if (hit && sameDay && isFresh(hit.freshAt, ttlMs)) {
+    const hitTtlMs = hit ? (options.ttlMsForValue?.(hit.value) ?? ttlMs) : ttlMs;
+    if (hit && sameDay && isFresh(hit.freshAt, hitTtlMs)) {
         recordDataSource({ source, status: 'cache', dataFetchedAt: asIso(hit.freshAt) })
         return hit.value;
     }
