@@ -40,6 +40,7 @@ export default class NdbcStationSource implements BuoyStationSource {
     }) {}
 
     public async listActive(): Promise<BuoyStation[]> {
+        this._validateUrl()
         let lastError: unknown
         let attempts = 0
         for (let attempt = 0; attempt <= this.options.retries; attempt += 1) {
@@ -67,8 +68,20 @@ export default class NdbcStationSource implements BuoyStationSource {
     }
 
     private _isRetryable(error: unknown): boolean {
-        if (!(error instanceof NdbcHttpError)) return true
-        return error.status === 408 || error.status === 429 || error.status >= 500
+        if (error instanceof NdbcHttpError) {
+            return error.status === 408 || error.status === 429 || (error.status >= 500 && error.status <= 599)
+        }
+        return error instanceof TypeError
+            || (error instanceof Error && (error.name === 'AbortError' || error.name === 'TimeoutError'))
+    }
+
+    private _validateUrl(): void {
+        try {
+            const url = new URL(this.options.url)
+            if (url.protocol !== 'http:' && url.protocol !== 'https:') throw new Error('unsupported protocol')
+        } catch {
+            throw new Error(`Invalid NDBC active-stations URL: ${this.options.url}`)
+        }
     }
 
     private _parse(xml: string): BuoyStation[] {
