@@ -27,54 +27,80 @@ function getOwmForecastSource(value: string | undefined): OwmForecastSource {
     throw new Error('OWM_FORECAST_SOURCE must be free-3h or pro-hourly.')
 }
 
-function getNonNegativeInteger(value: string | undefined, defaultValue: number): number {
-    if (value === undefined || value.trim() === '') return defaultValue
+function getPositiveInteger(key: string, value: string | undefined, defaultValue: number): number {
+    if (value === undefined) return defaultValue
     const parsed = Number(value)
-    return Number.isInteger(parsed) && parsed >= 0 ? parsed : defaultValue
+    if (!Number.isInteger(parsed) || parsed <= 0) {
+        throw new Error(`${key} must be a strictly positive integer.`)
+    }
+    return parsed
+}
+
+function getNonNegativeInteger(key: string, value: string | undefined, defaultValue: number): number {
+    if (value === undefined) return defaultValue
+    const parsed = Number(value)
+    if (value.trim() === '' || !Number.isInteger(parsed) || parsed < 0) {
+        throw new Error(`${key} must be a non-negative integer.`)
+    }
+    return parsed
 }
 
 /*--------------------------------------------------------------------------*/
 
-const config = {
+export function createConfig(env: Record<string, string | undefined>) {
+    const syncIntervalKey = env.SYNC_INTERVAL_MS !== undefined
+        ? 'SYNC_INTERVAL_MS'
+        : 'BUOY_SYNC_INTERVAL_MS'
+    const syncIntervalValue = env.SYNC_INTERVAL_MS !== undefined
+        ? env.SYNC_INTERVAL_MS
+        : env.BUOY_SYNC_INTERVAL_MS
+    const syncRunOnBoot = env.SYNC_RUN_ON_BOOT !== undefined
+        ? env.SYNC_RUN_ON_BOOT
+        : env.BUOY_SYNC_RUN_ON_BOOT
+
+    return {
     http: {
-        port: parseInt(process.env.HTTP_PORT || '') || 3002,
-        host:          process.env.HTTP_HOST || '0.0.0.0'
+        port: parseInt(env.HTTP_PORT || '') || 3002,
+        host:          env.HTTP_HOST || '0.0.0.0'
     },
     mongo: {
-        uri: process.env.MONGO_URI,
-        maxPoolSize: parseInt(process.env.MONGO_MAX_POOL_SIZE || '') || 5
+        uri: env.MONGO_URI,
+        maxPoolSize: getPositiveInteger('MONGO_MAX_POOL_SIZE', env.MONGO_MAX_POOL_SIZE, 5)
     },
     ndbc: {
-        activeStationsUrl: process.env.NDBC_ACTIVE_STATIONS_URL || 'https://www.ndbc.noaa.gov/activestations.xml',
-        fetchTimeoutMs: parseInt(process.env.NDBC_FETCH_TIMEOUT_MS || '') || 20000,
-        retries: getNonNegativeInteger(process.env.NDBC_FETCH_RETRIES, 3)
+        activeStationsUrl: env.NDBC_ACTIVE_STATIONS_URL || 'https://www.ndbc.noaa.gov/activestations.xml',
+        fetchTimeoutMs: getPositiveInteger('NDBC_FETCH_TIMEOUT_MS', env.NDBC_FETCH_TIMEOUT_MS, 20000),
+        retries: getNonNegativeInteger('NDBC_FETCH_RETRIES', env.NDBC_FETCH_RETRIES, 3)
     },
     sync: {
-        intervalMs: parseInt(process.env.BUOY_SYNC_INTERVAL_MS || '') || 86400000,
-        runOnBoot: process.env.BUOY_SYNC_RUN_ON_BOOT?.toLowerCase() !== 'false'
+        intervalMs: getPositiveInteger(syncIntervalKey, syncIntervalValue, 86400000),
+        runOnBoot: syncRunOnBoot?.toLowerCase() !== 'false'
     },
     owm: {
-        apiKey: process.env.OWM_API_KEY,
-        forecastSource: getOwmForecastSource(process.env.OWM_FORECAST_SOURCE)
+        apiKey: env.OWM_API_KEY,
+        forecastSource: getOwmForecastSource(env.OWM_FORECAST_SOURCE)
     },
     mapTiles: {
-        enabled: process.env.MAP_TILES_ENABLED === 'true'
+        enabled: env.MAP_TILES_ENABLED === 'true'
     },
     weatherBit: {
-        apiKey: process.env.WEATHERBIT_API_KEY,
+        apiKey: env.WEATHERBIT_API_KEY,
     },
     gemini: {
-        apiKey: process.env.GEMINI_API_KEY,
-        model: process.env.GEMINI_MODEL ?? 'gemini-3.1-flash-lite'
+        apiKey: env.GEMINI_API_KEY,
+        model: env.GEMINI_MODEL ?? 'gemini-3.1-flash-lite'
     },
     rateLimit: {
-        enabled: process.env.RATE_LIMIT_ENABLED !== 'false', // đặt 'false' để tắt (test); mặc định bật
-        windowMs: parseInt(process.env.RATE_LIMIT_WINDOW_MS || '60000'),
-        globalMax: parseInt(process.env.RATE_LIMIT_GLOBAL_MAX || '120'), // trần tổng mọi IP (endpoint data)
-        ipMax: parseInt(process.env.RATE_LIMIT_IP_MAX || '60'),          // trần mỗi IP (endpoint data)
+        enabled: env.RATE_LIMIT_ENABLED !== 'false', // đặt 'false' để tắt (test); mặc định bật
+        windowMs: parseInt(env.RATE_LIMIT_WINDOW_MS || '60000'),
+        globalMax: parseInt(env.RATE_LIMIT_GLOBAL_MAX || '120'), // trần tổng mọi IP (endpoint data)
+        ipMax: parseInt(env.RATE_LIMIT_IP_MAX || '60'),          // trần mỗi IP (endpoint data)
         // Bucket riêng cho /api/v1/maps/* — tile map bùng nổ theo lô (zoom/pan tải
         // hàng chục tile/lần), rẻ + đã cache -> hạn cao hơn nhiều endpoint data.
-        mapGlobalMax: parseInt(process.env.RATE_LIMIT_MAP_GLOBAL_MAX || '1200'),
-        mapIpMax: parseInt(process.env.RATE_LIMIT_MAP_IP_MAX || '600')
+        mapGlobalMax: parseInt(env.RATE_LIMIT_MAP_GLOBAL_MAX || '1200'),
+        mapIpMax: parseInt(env.RATE_LIMIT_MAP_IP_MAX || '600')
+    }
     }
 }
+
+const config = createConfig(process.env)

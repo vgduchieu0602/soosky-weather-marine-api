@@ -32,6 +32,6 @@ test('writes changed and new stations while touching only lastSeenAt for unchang
     assert.deepEqual(operations, [
         { updateOne: { filter: { buoyId: 'same' }, update: { $set: { lastSeenAt: now } }, upsert: false } },
         { updateOne: { filter: { buoyId: 'changed' }, update: { $set: { name: 'New name', lat: 3, lon: 4, lastSeenAt: now, changedAt: now } }, upsert: false } },
-        { updateOne: { filter: { buoyId: 'new' }, update: { $set: { name: null, lat: 5, lon: 6, lastSeenAt: now, changedAt: now }, $setOnInsert: { source: 'ndbc', firstSeenAt: now } }, upsert: true } }
+        { updateOne: { filter: { buoyId: 'new' }, update: { $set: { name: null, lat: 5, lon: 6, lastSeenAt: now, changedAt: now }, $setOnInsert: { source: 'ndbc-activestations', firstSeenAt: now } }, upsert: true } }
     ])
 })

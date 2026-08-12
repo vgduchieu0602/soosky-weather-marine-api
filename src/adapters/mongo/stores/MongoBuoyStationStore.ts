@@ -95,7 +95,7 @@ export default class MongoBuoyStationStore implements BuoyStationRepository, Buo
                                 changedAt: now
                             },
                             $setOnInsert: {
-                                source: 'ndbc',
+                                source: 'ndbc-activestations',
                                 firstSeenAt: now
                             }
                         },
