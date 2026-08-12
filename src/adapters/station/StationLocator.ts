@@ -47,12 +47,30 @@ export default class StationLocatorImpl implements StationLocator {
     }
 
     // ---- nearest list ----
+    // Top-K bằng insertion sort tại chỗ: duyệt directory (hàng nghìn trạm) đúng 1
+    // lần, chỉ cấp phát object cho trạm thật sự lọt top `limit` (=3). Không map/
+    // filter/sort/slice toàn list -> không có mảng trung gian, ít rác cho GC.
     private _nearestList (stations: Station[], lat: number, lon: number, maxKm: number, limit: number): NearestStation[] {
-        return stations
-            .map((s) => ({ id: s.id, distanceKm: haversineKm(lat, lon, s.lat, s.lon) }))
-            .filter((s) => s.distanceKm <= maxKm)
-            .sort((a, b) => a.distanceKm - b.distanceKm)
-            .slice(0, limit);
+        if (limit <= 0) return [];
+        const kept: NearestStation[] = [];   // luôn sắp gần->xa, độ dài <= limit
+        for (const s of stations) {
+            const distanceKm = haversineKm(lat, lon, s.lat, s.lon);
+            if (distanceKm > maxKm) continue;
+            // Đã đủ chỗ và xa hơn (hoặc bằng) ứng viên cuối -> loại luôn. Điều kiện
+            // `>=` giữ ties theo thứ tự gốc, khớp sort ổn định của bản cũ.
+            const last = kept[kept.length - 1];
+            if (kept.length === limit && last && distanceKm >= last.distanceKm) continue;
+            // Ghi vào cuối nếu còn chỗ, ngược lại đè ứng viên xa nhất; dịch phải các
+            // phần tử xa hơn để giữ thứ tự.
+            let i = kept.length < limit ? kept.length : limit - 1;
+            for (; i > 0; i--) {
+                const prev = kept[i - 1]!;
+                if (prev.distanceKm <= distanceKm) break;
+                kept[i] = prev;
+            }
+            kept[i] = { id: s.id, distanceKm };
+        }
+        return kept;
     }
 
     // ---- directory load + cache (single-flight, best-effort) ----
