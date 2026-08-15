@@ -86,7 +86,6 @@ class Server {
     constructor (
         private _useCases: ServerUseCases,
         private _rateLimiter: RateLimiter,
-        private _mapRateLimiter: RateLimiter,
         private _mapTilesEnabled = false
     ) {
         this._registerRouter();
@@ -150,13 +149,14 @@ class Server {
         })
 
         this._server.use((req: Request, _res: Response, next: NextFunction) => {
-            // Map tile bùng nổ theo lô (zoom/pan) -> bucket riêng hạn cao; endpoint
-            // data đắt -> bucket chặt. req.path bỏ query string.
-            const limiter = req.path.startsWith('/api/v1/maps/') ? this._mapRateLimiter : this._rateLimiter
-            const blocked = limiter.check(req.ip ?? 'unknown')
-            if (blocked) {
-                // scope IP -> client này quá nhiều; GLOBAL -> tổng toàn server quá tải.
-                throw new ClientError(`Too many requests (${blocked}).`, 429, 'RATE_LIMITED')
+            // Map tile bùng nổ theo lô (1 lần zoom/pan xin vài chục tile) -> đếm chung
+            // với endpoint data sẽ chặn cả user hợp lệ, nên MIỄN rate limit. Trần chi
+            // phí OWM đã có ở tầng khác: MAP_TILES_ENABLED + LRU cache tile trong RAM.
+            // req.path bỏ query string.
+            if (req.path.startsWith('/api/v1/maps/')) return next()
+
+            if (this._rateLimiter.check(req.ip ?? 'unknown')) {
+                throw new ClientError('Too many requests.', 429, 'RATE_LIMITED')
             }
 
             next()
