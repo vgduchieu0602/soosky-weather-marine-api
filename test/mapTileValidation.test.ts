@@ -19,7 +19,7 @@ function createServer (
         radar: {getRadar: {execute: async () => undefined}},
         alert: {getAlerts: {execute: async () => undefined}},
         tips: {getWeatherTips: {execute: async () => undefined}}
-    } as any, new RateLimiter(1, 1, 1, false), new RateLimiter(1, 1, 1, false), mapTilesEnabled)
+    } as any, new RateLimiter(1, 1, false), mapTilesEnabled)
 }
 
 function mapResponse () {

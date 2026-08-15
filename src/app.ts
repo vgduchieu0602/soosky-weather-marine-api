@@ -58,37 +58,19 @@ const {
     }
 } = config;
 
-const TWO_MINUTES = 2 * 60 * 1000;
-const FIVE_MINUTES = 5 * 60 * 1000;
-const SIX_MINUTES = 6 * 60 * 1000;
 const TEN_MINUTES = 10 * 60 * 1000;
-const FIFTEEN_MINUTES = 15 * 60 * 1000;
 const THIRTY_MINUTES = 30 * 60 * 1000;
 const ONE_HOUR = 60 * 60 * 1000;
 const THREE_HOURS = 3 * ONE_HOUR;
 const ONE_DAY = 24 * ONE_HOUR;
 
-// TTL tạm cho tester. Sau khi test xong, đổi dòng `ACTIVE_WEATHER_CACHE_TTL`
-// từ `.test` sang `.normal` là khôi phục toàn bộ TTL ban đầu.
 const WEATHER_CACHE_TTL = {
-    test: {
-        ndbc: SIX_MINUTES,
-        weatherBitHumidity: FIVE_MINUTES,
-        weatherBitUv: FIVE_MINUTES,
-        owmForecast: FIVE_MINUTES,
-        owmCurrent: FIVE_MINUTES
-    },
-    normal: {
-        ndbc: THIRTY_MINUTES,
-        weatherBitHumidity: THREE_HOURS,
-        weatherBitUv: THREE_HOURS,
-        owmForecast: ONE_DAY,
-        owmCurrent: THIRTY_MINUTES
-    }
+    ndbc: THIRTY_MINUTES,
+    weatherBitHumidity: THREE_HOURS,
+    weatherBitUv: THREE_HOURS,
+    owmForecast: ONE_DAY,
+    owmCurrent: THIRTY_MINUTES
 } as const
-
-const ACTIVE_WEATHER_CACHE_TTL = WEATHER_CACHE_TTL.test
-// const ACTIVE_WEATHER_CACHE_TTL = WEATHER_CACHE_TTL.normal
 
 
 /*----------------------------------------------------------------------------------*/
@@ -105,20 +87,20 @@ const buoyRepo = new NdbcBuoyRepository()
 //  - WeatherBit: humidity + uvIndex 3h (2 field vẫn tách timestamp/TTL riêng).
 //    TTL đo từ mốc GHI CACHE, không từ ob_time (WeatherBit trễ 15-60 phút).
 const mongoBuoyRepo = new CachedBuoyWeatherRepository(
-    buoyRepo, new MongoBuoyWeatherCache(), ACTIVE_WEATHER_CACHE_TTL.ndbc
+    buoyRepo, new MongoBuoyWeatherCache(), WEATHER_CACHE_TTL.ndbc
 )
-// TẠM TEST: TTL tide hạ còn 2 phút để kiểm tra vòng refetch NOAA có chạy.
-// KHÔI PHỤC `ONE_DAY` sau khi test — prediction 1 ngày không đổi trong ngày.
-const cachedTideRepo = new CachedTideRepository(tideRepo, new MongoTideCache(), TWO_MINUTES)
+// Prediction của 1 ngày cụ thể không đổi trong ngày -> TTL 1 ngày.
+// (Muốn kiểm tra vòng refetch NOAA khi dev: tạm hạ xuống vài phút.)
+const cachedTideRepo = new CachedTideRepository(tideRepo, new MongoTideCache(), ONE_DAY)
 const weatherBitRepo = new CachedWeatherBitRepository(
     new WeatherBitCurrentRepository(), new MongoWeatherBitCache(),
-    ACTIVE_WEATHER_CACHE_TTL.weatherBitHumidity, ACTIVE_WEATHER_CACHE_TTL.weatherBitUv
+    WEATHER_CACHE_TTL.weatherBitHumidity, WEATHER_CACHE_TTL.weatherBitUv
 )
 const forecastRepo = new CachedOwmForecastRepository(
-    new OwmForecastRepositoryImpl(), new MongoOwmForecastCache(), ACTIVE_WEATHER_CACHE_TTL.owmForecast
+    new OwmForecastRepositoryImpl(), new MongoOwmForecastCache(), WEATHER_CACHE_TTL.owmForecast
 )
 const pointWeatherRepo = new CachedPointWeatherRepository(
-    new OwmCurrentRepository(), new MongoPointWeatherCache(), ACTIVE_WEATHER_CACHE_TTL.owmCurrent
+    new OwmCurrentRepository(), new MongoPointWeatherCache(), WEATHER_CACHE_TTL.owmCurrent
 )
 
 // Map tile: cache TTL ngắn TRONG RAM (không Mongo — ảnh nặng, không cần bền vững),
@@ -143,12 +125,9 @@ const stationLocator = new StationLocatorImpl()
 const buoyStationStore = new MongoBuoyStationStore()
 const buoyStationSource = new NdbcStationSource()
 
-// Giới hạn TỔNG số request (mọi client cộng lại) trong 1 cửa sổ — xem
-// GlobalRateLimiter.ts. Dùng đúng config đã khai báo sẵn từ đầu project
-// (RATE_LIMIT_WINDOW_MS/RATE_LIMIT_GLOBAL_MAX), trước đây chưa có middleware nào áp dụng.
-const rateLimiter = new RateLimiter(config.rateLimit.windowMs, config.rateLimit.globalMax, config.rateLimit.ipMax, config.rateLimit.enabled)
-// Bucket riêng cho map tile (hạn cao hơn) — xem config.rateLimit.map*.
-const mapRateLimiter = new RateLimiter(config.rateLimit.windowMs, config.rateLimit.mapGlobalMax, config.rateLimit.mapIpMax, config.rateLimit.enabled)
+// Giới hạn request MỖI IP trong 1 cửa sổ (RATE_LIMIT_WINDOW_MS/RATE_LIMIT_IP_MAX).
+// Không còn trần global và không còn bucket riêng cho map — xem RateLimiter.ts.
+const rateLimiter = new RateLimiter(config.rateLimit.windowMs, config.rateLimit.ipMax, config.rateLimit.enabled)
 
 // --- Use Cases ---
 const useCases = {
@@ -193,7 +172,7 @@ const useCases = {
 /*----------------------------------------------------------------------------------*/
 
 async function startServer() {
-const server = new Server(useCases, rateLimiter, mapRateLimiter, config.mapTiles.enabled);
+const server = new Server(useCases, rateLimiter, config.mapTiles.enabled);
     await server.listen(HTTP_PORT, HTTP_HOST);
     console.log(`Soosky Weather Marine API running on http://${HTTP_HOST}:${HTTP_PORT}`);
 }
