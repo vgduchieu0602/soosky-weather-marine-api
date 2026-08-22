@@ -1,6 +1,5 @@
 import config, { MissingEnvVarError } from './config';
 import Server from './http/Server';
-import RateLimiter from './http/RateLimiter';
 import connectMongo from './adapters/mongo/connectMongo';
 
 // Upstream sources
@@ -117,11 +116,7 @@ const useCases = {
     tips:  { getWeatherTips: new GetWeatherTipsUseCase(weatherAdvisorRepo) },
 };
 
-const rateLimiter = new RateLimiter(
-    config.rateLimit.windowMs, config.rateLimit.ipMax, config.rateLimit.enabled,
-);
-
-const server = new Server(useCases, rateLimiter, config.mapTiles.enabled);
+const server = new Server(useCases, config.mapTiles.enabled);
 
 (async () => {
     await connectMongo({ maxPoolSize: config.mongo.maxPoolSize });

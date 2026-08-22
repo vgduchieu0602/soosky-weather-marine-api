@@ -93,7 +93,6 @@ Mỗi phần tử `dataSources` có `{ source, status, dataFetchedAt }` với
 | Nguyên nhân | HTTP | `code` |
 |---|---|---|
 | `ClientError` (validate input) | 400 (mặc định) | `BAD_REQUEST` |
-| Vượt rate limit | 429 | `RATE_LIMITED` |
 | Route không tồn tại | 404 | `NOT_FOUND` |
 | `StationNotFoundError` | 404 | `STATION_NOT_FOUND` |
 | `NoTideDataError` | 422 | `NO_TIDE_DATA` |
@@ -262,12 +261,11 @@ Comment tại error handler xác nhận 500 chỉ còn dành cho lỗi nội b�
 Bốn cơ chế cùng lúc: cache bền vững (FR-020), negative cache 2 phút (FR-018), kill
 switch `MAP_TILES_ENABLED` (mặc định `false`), LRU tile cache trong RAM.
 
-**NFR-005 — Rate limit:**
-Sliding-window per-IP, in-memory, cửa sổ `RATE_LIMIT_WINDOW_MS` (60 giây), trần
-`RATE_LIMIT_IP_MAX` (60). **Không có trần global** — lý do ghi trong code: trần
-global chặn cả traffic hợp lệ khi đông người dùng thật. `/api/v1/maps/*` được miễn
-hoàn toàn vì tile bùng nổ theo lô. State reset khi restart; có sweep định kỳ để Map
-không phình.
+**NFR-005 — Không giới hạn tần suất:**
+API không rate-limit. Trần chi phí với nhà cung cấp trả phí dựa hoàn toàn vào các
+cơ chế ở NFR-004 (cache bền vững, negative cache, `MAP_TILES_ENABLED`, LRU tile).
+`POST /api/v1/weather-tips` không có lớp nào che: không cache, mỗi request là một
+lần gọi Gemini tính phí.
 
 **NFR-006 — Ràng buộc hiệu năng khi tra trạm gần nhất:**
 Directory NDBC/NOAA (hàng nghìn trạm) được cache RAM 24 giờ với single-flight
@@ -284,7 +282,7 @@ lần, không tạo mảng trung gian. Có test so khớp kết quả với bả
 
 - API bind `127.0.0.1:3002` (`HTTP_HOST` mặc định) — không mở ra internet, đứng sau nginx.
 - `buoy-sync` không expose port nào.
-- `trust proxy = 1` — đúng 1 hop proxy; sai số hop sẽ làm rate limit per-IP sai.
+- `trust proxy = 1` — đúng 1 hop proxy; sai số hop làm `req.ip` trong log sai.
 - Body JSON giới hạn 64 KB.
 - Secret chỉ qua `.env` / GitHub Secrets; `.env` nằm trong `.gitignore`.
 - Client nhận message lỗi chung ở 500, chi tiết chỉ vào log server.
@@ -301,7 +299,7 @@ Guard đặt ở `app.ts` chứ không ở `config.ts` để worker `buoySync` �
 `dist/buoy-sync.js`, fail nếu thiếu.
 
 **NFR-011 — Test:**
-`node:test` chạy qua `tsx`, 18 file trong [test/](test/), không có framework test
+`node:test` chạy qua `tsx`, 17 file trong [test/](test/), không có framework test
 bên thứ ba. Test dùng fixture deterministic và stub `fetch`/model; không gọi API
 ngoài có phí. README yêu cầu chạy với `--test-concurrency=1`.
 
@@ -393,9 +391,6 @@ bằng tương thích ngược ở tầng đọc (NFR-013), không bằng migrat
 | `SYNC_RUN_ON_BOOT` | `true` (chỉ `'false'` mới tắt) | Không | [config.ts:77](src/config.ts#L77) | OBSERVED |
 | `BUOY_SYNC_INTERVAL_MS` | — | Alias legacy, chỉ dùng khi thiếu `SYNC_INTERVAL_MS` | [config.ts:51-56](src/config.ts#L51-L56), [test/config.test.ts:21,40](test/config.test.ts#L21) | OBSERVED |
 | `BUOY_SYNC_RUN_ON_BOOT` | — | Alias legacy tương tự | [config.ts:57-59](src/config.ts#L57-L59) | OBSERVED |
-| `RATE_LIMIT_ENABLED` | `true` (chỉ `'false'` mới tắt) | Không | [config.ts:94](src/config.ts#L94) | OBSERVED |
-| `RATE_LIMIT_WINDOW_MS` | `60000` | Không | [config.ts:95](src/config.ts#L95) | OBSERVED |
-| `RATE_LIMIT_IP_MAX` | `60` | Không | [config.ts:96](src/config.ts#L96) | OBSERVED |
 | `HTTP_PORT` | `3002` | Không | [config.ts:63](src/config.ts#L63) | OBSERVED |
 | `HTTP_HOST` | `127.0.0.1` | Không | [config.ts:64](src/config.ts#L64) | OBSERVED |
 | `PORT` | — | **Không được code đọc** | [.env.example:2](.env.example#L2) khai nhưng `src/` không dùng | NEEDS CONFIRMATION (xem OQ-01) |

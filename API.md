@@ -43,7 +43,6 @@ FE phải `parseFloat()` trước khi tính toán, và check `=== "n/a"` thay v�
 | 404 | `STATION_NOT_FOUND` | Station id đúng định dạng nhưng NOAA không có trạm đó |
 | 404 | `NOT_FOUND` | Route không tồn tại |
 | 422 | `NO_TIDE_DATA` | Trạm **có thật** nhưng NOAA không có dữ liệu tide prediction (vd trạm Great Lakes, trạm water-level-only) |
-| 429 | `RATE_LIMITED` | Vượt rate limit. `reason` chứa `(IP)` hoặc `(GLOBAL)` |
 | 502 | `UPSTREAM_UNAVAILABLE` | Nguồn ngoài trục trặc ở endpoint không chịu được partial (map tile, weather tips) |
 | 500 | `INTERNAL` | Lỗi nội bộ ngoài dự kiến |
 
@@ -86,8 +85,6 @@ Không param. Không bị ảnh hưởng bởi bất kỳ nguồn ngoài nào.
 ```json
 { "ok": true, "data": { "uptime": "96.2781022" } }
 ```
-
-Lưu ý: `/health` **vẫn tính vào rate limit**. Health check của load balancer gọi quá dày sẽ ăn quota của user thật.
 
 ---
 
@@ -616,7 +613,7 @@ Body tối đa 64 KB.
 | P8 | `GET /api/v1/weather-tips` | 404 `NOT_FOUND` (route chỉ nhận POST) | ✅ |
 | P9 | Gemini lỗi/quota | 502 `UPSTREAM_UNAVAILABLE` | (không dựng được) |
 
-**P7 cần chú ý:** `weather: {}` vẫn tốn 1 lần gọi Gemini. Endpoint này **không cache** và dùng chung bucket rate limit với endpoint data (60/phút/IP), nên 1 IP có thể bắn 60 lần gọi Gemini mỗi phút.
+**P7 cần chú ý:** `weather: {}` vẫn tốn 1 lần gọi Gemini. Endpoint này **không cache** và API **không rate-limit**, nên số lần gọi Gemini tính phí bằng đúng số request nhận được.
 
 ---
 
@@ -659,12 +656,6 @@ Cache hết hạn mà refetch lỗi → phục vụ bản cũ (stale) thay vì t
 | `GEMINI_MODEL` | ❌ | `gemini-3.1-flash-lite` |
 | `HTTP_PORT` | ❌ | `3002` |
 | `HTTP_HOST` | ❌ | `127.0.0.1` |
-| `RATE_LIMIT_ENABLED` | ❌ | `true` (đặt `false` để tắt) |
-| `RATE_LIMIT_WINDOW_MS` | ❌ | `60000` |
-| `RATE_LIMIT_GLOBAL_MAX` | ❌ | `120` |
-| `RATE_LIMIT_IP_MAX` | ❌ | `60` |
-| `RATE_LIMIT_MAP_GLOBAL_MAX` | ❌ | `1200` |
-| `RATE_LIMIT_MAP_IP_MAX` | ❌ | `600` |
 
 [`config.ts`](../src/config.ts) gọi `dotenv.config({ override: true })` — file `.env` **đè lên** biến môi trường của shell. Local không thể override tạm bằng `VAR=x npm run dev`. Trên VPS cũng vậy: biến do process manager tiêm vào sẽ bị `.env` ghi đè — cấu hình production phải đặt trong `.env`, không phải trong config của process manager.
 

@@ -24,7 +24,6 @@ import GetAlertsUseCase from '../domain/use-cases/alert/GetAlertsUseCase';
 import GetWeatherTipsUseCase from '../domain/use-cases/tips/GetWeatherTipsUseCase';
 import { MAP_LAYERS, MapLayer } from '../domain/entities/MapTile';
 import { PERSONAS, Persona, validateWeatherTipsWeather } from '../domain/entities/WeatherTips';
-import RateLimiter from './RateLimiter';
 import { getResponseMeta, runWithResponseTrace } from '../observability/responseTrace';
 
 export {Server as default}
@@ -85,7 +84,6 @@ type ServerUseCases = {
 class Server {
     constructor (
         private _useCases: ServerUseCases,
-        private _rateLimiter: RateLimiter,
         private _mapTilesEnabled = false
     ) {
         this._registerRouter();
@@ -135,8 +133,9 @@ class Server {
     ]
 
     private _registerRouter(): void {
-        // Tin 1 hop proxy trước (nginx/Render/Cloudflare) -> req.ip lấy từ
-        // X-Forwarded-For thay vì IP proxy. Bắt buộc để rate limit per-IP đúng.
+        // Tin 1 hop proxy trước (nginx) -> req.ip / req.protocol lấy từ
+        // X-Forwarded-For / X-Forwarded-Proto thay vì của proxy, nên log và mọi
+        // thứ đọc req.ip thấy đúng client thật.
         // Nếu deploy KHÔNG qua proxy: đổi về false. Nhiều tầng proxy: tăng số hop.
         this._server.set('trust proxy', 1)
 
@@ -147,21 +146,6 @@ class Server {
         this._server.use((_req: Request, _res: Response, next: NextFunction) => {
             runWithResponseTrace(() => next())
         })
-
-        this._server.use((req: Request, _res: Response, next: NextFunction) => {
-            // Map tile bùng nổ theo lô (1 lần zoom/pan xin vài chục tile) -> đếm chung
-            // với endpoint data sẽ chặn cả user hợp lệ, nên MIỄN rate limit. Trần chi
-            // phí OWM đã có ở tầng khác: MAP_TILES_ENABLED + LRU cache tile trong RAM.
-            // req.path bỏ query string.
-            if (req.path.startsWith('/api/v1/maps/')) return next()
-
-            if (this._rateLimiter.check(req.ip ?? 'unknown')) {
-                throw new ClientError('Too many requests.', 429, 'RATE_LIMITED')
-            }
-
-            next()
-        })
-
 
         for (const [method, path, ...handlers] of this.routes) {
             (this._server as any)[(method as string).toLowerCase()](path, ...handlers)

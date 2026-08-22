@@ -45,11 +45,6 @@ const config = {
         apiKey: process.env['GEMINI_API_KEY'],
         model: process.env['GEMINI_MODEL'] || 'gemini-3.1-flash-lite',
     },
-    rateLimit: {
-        enabled: process.env['RATE_LIMIT_ENABLED'] !== 'false', 
-        windowMs: Number(process.env['RATE_LIMIT_WINDOW_MS'] || 60000),
-        ipMax: Number(process.env['RATE_LIMIT_IP_MAX'] || 60),
-    },
 };
 
 export default config;
