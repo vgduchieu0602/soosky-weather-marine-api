@@ -16,6 +16,14 @@ const COL = {
     vis: 16, // visibility (hải ký/ nmi)
 };
 
+// Dòng mới nhất của realtime2 thường có cột "MM" (cảm biến gửi lệch nhịp), trong
+// khi dòng cách đó 10 phút lại có số. Nếu chỉ đọc dòng đầu thì mất data thật:
+// vd 44008 lúc 07:20 có WDIR/WSPD/GST = MM nhưng 07:10 là 60/5.0/6.0.
+// -> mỗi cột tự lùi lại tìm giá trị non-MM gần nhất trong LOOKBACK_ROWS dòng đầu.
+// realtime2 ghi ~10 phút/dòng nên 6 dòng ≈ 1 giờ: đủ bù nhịp lệch, vẫn còn là số
+// đo "hiện tại" của biển.
+const LOOKBACK_ROWS = 6;
+
 /*----------------------------------------------------------------------------------*/
 
 export default class NdbcBuoyRepository implements BuoyWeatherRepository {
@@ -35,31 +43,54 @@ export default class NdbcBuoyRepository implements BuoyWeatherRepository {
     }
 
     private _parse (buoyId: string, text: string): BuoyWeather {
-        const lines = text
+        const rows = text
             .split("\n")
             .map((line) => line.trim())
-            .filter((line) => line.length > 0 && !line.startsWith("#"));
+            .filter((line) => line.length > 0 && !line.startsWith("#"))
+            .slice(0, LOOKBACK_ROWS)
+            .map((line) => line.split(/\s+/));
 
-        if (lines.length === 0) {
+        if (rows.length === 0) {
             throw new Error(`NDBC station ${buoyId} has no data.`);
         }
 
-        const cols = lines[0]!.split(/\s+/)
-        const visNmi = this._num(cols[COL.vis]);
-        const windDirection = WindDirection.from(this._num(cols[COL.wdir]));
+        const visNmi = this._latest(rows, COL.vis);
 
         return {
             buoyId,
-            windDirection: windDirection?.degrees ?? null,
-            windSpeed: this._num(cols[COL.wspd]),
-            gust: this._num(cols[COL.gst]),
-            waveHeight: this._num(cols[COL.wvht]),
-            atmospherePressure: this._num(cols[COL.pres]),
-            temperature: this._num(cols[COL.atmp]),
-            waterTemp: this._num(cols[COL.wtmp]),
+            windDirection: this._latestWindDirection(rows),
+            windSpeed: this._latest(rows, COL.wspd),
+            gust: this._latest(rows, COL.gst),
+            waveHeight: this._latest(rows, COL.wvht),
+            atmospherePressure: this._latest(rows, COL.pres),
+            temperature: this._latest(rows, COL.atmp),
+            waterTemp: this._latest(rows, COL.wtmp),
             visibility: visNmi === null ? null : visNmi * 1852, // nmi -> m
-            updatedAt: this._toIso(cols)
+            // Thời điểm của DÒNG MỚI NHẤT (số đo mới nhất trạm gửi), không phải của
+            // dòng mà từng cột lùi về lấy.
+            updatedAt: this._toIso(rows[0]!)
         }
+    }
+
+    // Giá trị non-MM mới nhất của 1 cột. rows đã sắp mới -> cũ (thứ tự của feed).
+    private _latest (rows: string[][], col: number): number | null {
+        for (const cols of rows) {
+            const n = this._num(cols[col]);
+            if (n !== null) return n;
+        }
+
+        return null;
+    }
+
+    // Riêng hướng gió: ngoài "MM" còn phải bỏ giá trị ngoài [0, 360] (feed có lúc
+    // trả 361) -> coi như thiếu và lùi tiếp.
+    private _latestWindDirection (rows: string[][]): number | null {
+        for (const cols of rows) {
+            const windDirection = WindDirection.from(this._num(cols[COL.wdir]));
+            if (windDirection !== null) return windDirection.degrees;
+        }
+
+        return null;
     }
 
     private _num (token:string | undefined): number | null {

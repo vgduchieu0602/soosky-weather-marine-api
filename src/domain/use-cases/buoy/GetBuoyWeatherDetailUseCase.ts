@@ -5,9 +5,11 @@ import WeatherBitRepository from "../../repositories/IWeatherBitRepository";
 import OwmForecastRepository from "../../repositories/IOwmForecastRepository";
 import StationLocator from "../../repositories/IStationLocator";
 import BuoyStationRepository from "../../repositories/IBuoyStationRepository";
+import BuoyStationSource from "../../repositories/IBuoyStationSource";
 import { BuoyWeatherDetail } from "../../entities/BuoyWeatherDetail";
 import { resilientSource } from "../resilientSource";
 import { resolveTide } from "../resolveTide";
+import { resolveBuoyName } from "../resolveBuoyName";
 
 type TemperatureSource = 'ndbc' | 'weatherbit' | 'owm' | null;
 
@@ -46,7 +48,9 @@ export default class GetBuoyWeatherDetailUseCase {
         private _stationRepo: BuoyStationRepository,
         // Chỉ để lấy tình trạng thời tiết (conditionCode/icon/description) theo
         // lat/lon: NDBC là trạm đo cảm biến, không có khái niệm "trời nhiều mây".
-        private _pointRepo: PointWeatherRepository
+        private _pointRepo: PointWeatherRepository,
+        // Fallback tên trạm khi DB "buoys" thiếu/chưa có name (xem resolveBuoyName).
+        private _stationSource: BuoyStationSource
     ) {}
 
     public async execute (query: BuoyWeatherDetailQuery): Promise<BuoyWeatherDetail> {
@@ -54,7 +58,7 @@ export default class GetBuoyWeatherDetailUseCase {
 
         // MỖI nguồn bọc resilientSource: lỗi -> null (partial) + log, KHÔNG 500.
         // tide: resolveTide (client truyền hoặc thử vài trạm gần nhất, lấy trạm đầu có data).
-        const [buoy, point, weatherBit, forecast, tideRes, station] = await Promise.all([
+        const [buoy, point, weatherBit, forecast, tideRes, buoyName] = await Promise.all([
             resilientSource('buoy', `buoy:${query.buoyId}`,
                 () => this._buoyRepo.getBuoyWeather({ buoyId: query.buoyId })),
             resilientSource('current', `owmcur:${query.lat},${query.lon}`,
@@ -64,11 +68,8 @@ export default class GetBuoyWeatherDetailUseCase {
             resilientSource('forecast', `fcst:${query.lat},${query.lon}`,
                 () => this._forecastRepo.getForecast({ lat: query.lat, lon: query.lon })),
             resolveTide(this._tideRepo, this._locator, query.tideStationId, query.lat, query.lon, today),
-            this._stationRepo.findByBuoyId(query.buoyId)
-                .catch((err) => {
-                    console.warn(`[buoys] metadata lookup failed: ${(err as Error)?.message ?? err}`)
-                    return null
-                }),
+            // DB thiếu tên -> tự fallback activestations.xml; lỗi -> null (đã log).
+            resolveBuoyName(this._stationRepo, this._stationSource, query.buoyId),
         ]);
 
         // Lazy seed vị trí buoy vào "buoys" nếu chưa có (TH3) — best-effort,
@@ -82,7 +83,7 @@ export default class GetBuoyWeatherDetailUseCase {
         const resolvedTemperature = resolveTemperature(buoy?.temperature, weatherBit?.temperature, point?.temperature);
         return {
             buoyId: query.buoyId,
-            buoyName: station?.name ?? null,
+            buoyName,
             // lat/lon client truyền vào -> luôn có giá trị (Server đã validate).
             lat: query.lat,
             lon: query.lon,

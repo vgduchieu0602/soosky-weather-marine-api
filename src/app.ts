@@ -34,6 +34,7 @@ import CachedPointWeatherRepository from './adapters/cache/CachedPointWeatherRep
 import CachedRadarRepository from './adapters/cache/CachedRadarRepository';
 import CachedAlertRepository from './adapters/cache/CachedAlertRepository';
 import InMemoryMapTileRepository from './adapters/cache/InMemoryMapTileRepository';
+import InMemoryBuoyStationSource from './adapters/cache/InMemoryBuoyStationSource';
 
 // Use-cases
 import GetTideChartUseCase from './domain/use-cases/tide/getTideChartUseCase';
@@ -90,7 +91,16 @@ const weatherAdvisorRepo = new GeminiWeatherAdvisor(config.gemini.apiKey, config
 
 const stationLocator = new StationLocator();
 const buoyStationStore = new MongoBuoyStationStore();
-const buoyStationSource = new NdbcStationSource();
+// Dùng CHUNG 1 instance cho cả list (fallback lúc DB rỗng) và detail (fallback
+// tên trạm) -> 1 cache in-memory phục vụ cả hai. timeoutMs ngắn hơn default 15s
+// vì detail nằm trong đường phản hồi của user.
+const buoyStationSource = new InMemoryBuoyStationSource(
+    new NdbcStationSource({
+        url: config.ndbc.activeStationsUrl,
+        timeoutMs: 8000,
+        retries: 0,
+    }),
+);
 
 // --- Use-cases ---
 const useCases = {
@@ -100,7 +110,7 @@ const useCases = {
     buoy: {
         getBuoyWeatherDetail: new GetBuoyWeatherDetailUseCase(
             buoyWeatherRepo, tideRepo, weatherBitRepo, forecastRepo,
-            stationLocator, buoyStationStore, pointWeatherRepo,
+            stationLocator, buoyStationStore, pointWeatherRepo, buoyStationSource,
         ),
         listBuoys: new ListBuoysUseCase(buoyStationStore, buoyStationSource),
     },
