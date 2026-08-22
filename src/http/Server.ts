@@ -101,6 +101,11 @@ class Server {
     }
 
     private readonly routes = [
+        ['GET', '/',
+            // Không có route này thì mở domain trên browser rơi vào catch-all 404
+            // dưới cùng -> nhìn như deploy lỗi dù app đang sống.
+            this._GET_index.bind(this),
+        ],
         ['GET', '/health',
             this._GET_health.bind(this),
         ],
@@ -208,6 +213,12 @@ class Server {
 
             next()
         })
+    }
+
+    // Trả JSON thẳng, KHÔNG dùng envelope {ok, data} — đây là trang chào cho người
+    // mở browser/kiểm tra domain, không phải endpoint dữ liệu cho FE.
+    private _GET_index(_req: Request, res: Response):any {
+        return res.json({ message: 'Hello, World! This is Weather Marine API.' })
     }
 
     private _GET_health(_req: Request, res: Response):any {
