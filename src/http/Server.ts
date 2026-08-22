@@ -102,8 +102,6 @@ class Server {
 
     private readonly routes = [
         ['GET', '/',
-            // Không có route này thì mở domain trên browser rơi vào catch-all 404
-            // dưới cùng -> nhìn như deploy lỗi dù app đang sống.
             this._GET_index.bind(this),
         ],
         ['GET', '/health',
@@ -131,21 +129,13 @@ class Server {
             this._GET_alerts.bind(this)
         ],
         ['POST', '/api/v1/weather-tips',
-            // Smart Weather Tips (Gemini). POST vì nhận body JSON {persona, weather},
-            // không phải query — weather là object lớn, không hợp query string.
             this._POST_weatherTips.bind(this)
         ]
     ]
 
     private _registerRouter(): void {
-        // Tin 1 hop proxy trước (nginx) -> req.ip / req.protocol lấy từ
-        // X-Forwarded-For / X-Forwarded-Proto thay vì của proxy, nên log và mọi
-        // thứ đọc req.ip thấy đúng client thật.
-        // Nếu deploy KHÔNG qua proxy: đổi về false. Nhiều tầng proxy: tăng số hop.
         this._server.set('trust proxy', 1)
 
-        // Parse body JSON (cho POST /weather-tips). Đăng ký trước route; GET
-        // không có body nên không ảnh hưởng. Giới hạn size tránh payload lớn bất thường.
         this._server.use(express.json({limit: '64kb'}))
 
         this._server.use((_req: Request, _res: Response, next: NextFunction) => {
@@ -167,9 +157,6 @@ class Server {
             let message: string;
             let code: string;
 
-            // Nguồn upstream lỗi KHÔNG còn tới đây (đã nuốt thành null trong use-case
-            // qua resilientSource -> response 200 partial). 500 ở đây chỉ còn lỗi nội bộ
-            // ngoài dự kiến. Client nhận message chung, server log đầy đủ để debug.
             switch (true) {
                 case (err instanceof ClientError):
                     statusCode = err.statusCode;
@@ -215,8 +202,6 @@ class Server {
         })
     }
 
-    // Trả JSON thẳng, KHÔNG dùng envelope {ok, data} — đây là trang chào cho người
-    // mở browser/kiểm tra domain, không phải endpoint dữ liệu cho FE.
     private _GET_index(_req: Request, res: Response):any {
         return res.json({ message: 'Hello, World! This is Weather Marine API.' })
     }
