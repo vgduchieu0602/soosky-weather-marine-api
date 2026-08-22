@@ -4,9 +4,18 @@
 
 1. Copy `.env.example` to `.env` and set the required provider keys and `MONGO_URI`.
 2. Run `npm install`, then `npm run build`.
-3. Start both services with `docker compose up -d --build api buoy-sync`.
+3. Start the two processes in separate terminals:
 
-The API remains available on `127.0.0.1:3002`; the `buoy-sync` worker never exposes HTTP or any ports. The existing GET API contract and frontend integration remain unchanged.
+   ```powershell
+   npm.cmd start          # API  -> dist/app.js
+   npm.cmd run start:worker   # buoy sync worker -> dist/buoy-sync.js
+   ```
+
+The API listens on `127.0.0.1:3002` by default (`HTTP_HOST`/`HTTP_PORT`); the
+`buoy-sync` worker never exposes HTTP or any ports. The existing GET API contract and
+frontend integration remain unchanged.
+
+`npm run dev` runs the API only, with watch mode.
 
 ## Validation
 
@@ -16,54 +25,55 @@ Run:
 npm.cmd test -- --test-concurrency=1
 npm.cmd run build
 node scripts/assert-build-output.mjs
-docker compose config --quiet
 ```
 
-After startup, confirm the worker has completed a sync:
+After starting the worker, confirm it has completed a sync — it logs
+`Buoy sync complete: total=... created=... changed=... unchanged=...` once per cycle.
 
-```powershell
-docker compose logs buoy-sync
-```
-
-Its successful run is logged as `Buoy sync complete: total=... created=... changed=... unchanged=...`.
-
-Worker settings use `MONGO_MAX_POOL_SIZE`, `NDBC_FETCH_TIMEOUT_MS`, `NDBC_FETCH_RETRIES`, `SYNC_INTERVAL_MS`, and `SYNC_RUN_ON_BOOT`. Numeric values must be integers; pool size, fetch timeout, and sync interval must be greater than zero, while retries may be zero.
+Worker settings use `MONGO_MAX_POOL_SIZE`, `NDBC_FETCH_TIMEOUT_MS`, `NDBC_FETCH_RETRIES`,
+`SYNC_INTERVAL_MS`, and `SYNC_RUN_ON_BOOT`.
 
 ## VPS rollout
 
-1. Deploy the new code and its `.env` values, then build the shared image without starting either service:
+Two long-lived Node processes, both run from the repo root so `dotenv` can find `.env`:
 
-   ```powershell
-   docker compose build
+| Process | Command | Ports |
+|---|---|---|
+| API | `node dist/app.js` | `127.0.0.1:3002` |
+| Buoy sync worker | `node dist/buoy-sync.js` | none |
+
+1. Deploy the code and its `.env` values, then build. Build needs devDependencies
+   (`typescript`, `esbuild`), so do not `--omit=dev` here:
+
+   ```bash
+   git pull
+   npm ci
+   npm run build
    ```
 
-2. Start the no-port worker while the existing PM2 API continues to hold port 3002, then inspect its logs:
+   `npm run build` typechecks with `tsc --noEmit`, emits both bundles, and asserts they
+   exist. Note the bundles use `--packages=external`, so `node_modules` must stay next to
+   `dist/` at runtime — you cannot ship `dist/` alone.
 
-   ```powershell
-   docker compose up -d buoy-sync
-   docker compose logs --tail=100 buoy-sync
+2. Start the worker first and wait for its completion log before cutting over the API:
+
+   ```bash
+   node dist/buoy-sync.js
    ```
 
-   Wait for `Buoy sync complete: total=... created=... changed=... unchanged=...` before continuing.
+   Wait for `Buoy sync complete: total=... created=... changed=... unchanged=...`.
 
-3. Identify `weather-marine-api` in `pm2 status`. It is the old API process, not the legacy buoy scheduler. During the controlled port-3002 cutover, stop only that identified API process and immediately start and verify Docker `api`:
+3. Start the API and verify:
 
-   ```powershell
-   pm2 stop weather-marine-api
-   docker compose up -d api
-   docker compose ps api
-   curl.exe -f http://127.0.0.1:3002/health
+   ```bash
+   node dist/app.js
+   curl -f http://127.0.0.1:3002/health
    ```
 
-4. Only after the worker completion log and Docker API health check succeed, check for the known legacy scheduler `soosky-bot-weather-marine`. If the pre-check succeeds, stop and delete only that process, then save the PM2 process list:
+4. Put the two processes under a process manager so they survive crashes and reboots,
+   and front the API with nginx (`proxy_pass http://127.0.0.1:3002`). The app sets
+   `trust proxy = 1`, so the proxy must forward `X-Forwarded-For` for per-IP rate
+   limiting to key on the real client.
 
-   ```powershell
-   pm2 describe soosky-bot-weather-marine
-   if ($LASTEXITCODE -eq 0) {
-       pm2 stop soosky-bot-weather-marine
-       pm2 delete soosky-bot-weather-marine
-       pm2 save
-   }
-   ```
-
-Do not use a blanket PM2 deletion command. Identify the intended scheduler first and stop only that known process.
+   Run the worker as a **single instance**. Two concurrent workers would write the
+   `buoys` collection at the same time.

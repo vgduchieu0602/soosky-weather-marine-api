@@ -32,7 +32,7 @@ export {Server as default}
 /*----------------------------------------------------------------------------------------*/
 
 const HTTP_DEFAULT_PORT = 3002;
-const HTTP_DEFAULT_HOST = "0.0.0.0";
+const HTTP_DEFAULT_HOST = "127.0.0.1";
 
 // Station id NOAA CO-OPS luôn là 7 chữ số. Chặn tại đây để id rác (chữ, ký tự
 // đặc biệt) trả 400 thay vì đi 1 vòng NOAA rồi về 404 với message của họ.
