@@ -3,8 +3,8 @@ import test from 'node:test'
 import GetBuoyWeatherDetailUseCase from '../src/domain/use-cases/buoy/GetBuoyWeatherDetailUseCase'
 
 // Tên trạm: DB "buoys" là nguồn chuẩn, thiếu/null thì fallback activestations.xml.
-// Ca DB có doc nhưng name: null là thật — lazy seed của API insert name: null rồi
-// seedManyIfAbsent ($setOnInsert) không bao giờ vá.
+// Ca DB có doc nhưng name: null là thật — bản cũ lazy seed insert name: null kèm
+// toạ độ CLIENT; store hiện vá doc đó khi feed trả data thật (saveFromFeed).
 
 const MASONBORO = 'Masonboro Inlet, ILM2, NC (150)'
 
@@ -36,7 +36,12 @@ function makeUseCase (stationRepo: unknown, stationSource: unknown) {
 }
 
 function seedable (findByBuoyId: () => Promise<unknown>) {
-    return { findByBuoyId, seedIfAbsent: async () => undefined }
+    const saved: unknown[] = []
+    return {
+        findByBuoyId,
+        saveFromFeed: async (station: unknown) => { saved.push(station) },
+        saved
+    }
 }
 
 function sourceWith (stations: Array<{ buoyId: string; name: string | null }>) {
@@ -105,6 +110,42 @@ test('buoy detail still resolves when both name sources fail', async () => {
     assert.equal(detail.buoyId, '41110')
     assert.equal(detail.waveHeight, 0.5)
     assert.equal(detail.waterTemp, 29)
+})
+
+// Lazy seed: ghi VỊ TRÍ THẬT của trạm (từ feed). Bản cũ ghi toạ độ client ->
+// collection "buoys" đầy doc sai vị trí + name null.
+const flush = () => new Promise((resolve) => { setImmediate(resolve) })
+
+test('lazy seed writes the station position from the feed, never the client coordinates', async () => {
+    const repo = seedable(async () => null)
+    const source = { listActive: async () => [{ buoyId: '41110', name: MASONBORO, lat: 34.144, lon: -77.715 }] }
+    const useCase = makeUseCase(repo, source)
+
+    await useCase.execute({ buoyId: '41110', lat: 10.762, lon: 106.66 })
+    await flush()
+
+    assert.deepEqual(repo.saved, [{ buoyId: '41110', name: MASONBORO, lat: 34.144, lon: -77.715 }])
+})
+
+test('nothing is seeded when the feed does not list the station', async () => {
+    const repo = seedable(async () => null)
+    const source = { listActive: async () => [{ buoyId: '44008', name: 'NANTUCKET', lat: 40.5, lon: -69.25 }] }
+    const useCase = makeUseCase(repo, source)
+
+    await useCase.execute({ buoyId: '41110', lat: 10.762, lon: 106.66 })
+    await flush()
+
+    assert.deepEqual(repo.saved, [])
+})
+
+test('nothing is seeded when the DB already holds the station', async () => {
+    const repo = seedable(async () => ({ buoyId: '41110', name: MASONBORO, lat: 34.144, lon: -77.715 }))
+    const useCase = makeUseCase(repo, { listActive: async () => [] })
+
+    await useCase.execute({ buoyId: '41110', lat: 34.144, lon: -77.715 })
+    await flush()
+
+    assert.deepEqual(repo.saved, [])
 })
 
 test('buoy name falls back to the feed when the DB lookup throws', async () => {

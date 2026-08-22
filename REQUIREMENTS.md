@@ -35,6 +35,7 @@ Ngày luôn là **hôm nay theo UTC**, backend tự đặt, client không truy�
 `GET /api/v1/buoys` trả `BuoyStation[]` (`buoyId`, `name`, `lat`, `lon`) đọc từ
 collection `buoys`. DB rỗng → fallback fetch NDBC trực tiếp và seed nền
 (best-effort, không chặn response). Nguồn fallback lỗi → trả mảng rỗng.
+Doc placeholder (xem FR-034) không được tính là "DB có dữ liệu".
 
 **FR-004 — Thời tiết tại trạm phao:**
 `GET /api/v1/buoys/:buoyId/weather?lat=&lon=[&tideStationId=]` trả `WeatherDetail`.
@@ -208,14 +209,22 @@ Worker retry `NDBC_FETCH_RETRIES` lần (mặc định 3) với exponential back
 `app.ts` khởi tạo `new NdbcStationSource()` với default: timeout 15 giây,
 **0 retry**. Đây là đường fallback cold-start của FR-003, không phải đường sync.
 
-**FR-033 — Seed không đè dữ liệu writer chuẩn:**
-API chỉ ghi `buoys` bằng `$setOnInsert` (lazy seed từ request weather với
-`source: 'api-lazy-seed'`, cold seed từ `/buoys` với `source: 'api-cold-seed'`).
-Không bao giờ ghi đè `name`/`lat`/`lon` đã có.
+**FR-033 — API chỉ ghi `buoys` bằng dữ liệu từ feed NDBC:**
+`saveFromFeed` (1 trạm, `source: 'api-lazy-seed'`, gọi từ request weather) và
+`saveManyFromFeed` (nhiều trạm, `source: 'api-cold-seed'`, gọi từ `/buoys`) chỉ
+nhận `BuoyStation` lấy từ `activestations.xml` — **không bao giờ** ghi `lat`/`lon`
+do client truyền. Mỗi trạm sinh 2 op:
 
-**FR-034 — Ẩn trạm đã chết:**
-`listAll()` chỉ trả trạm có `lastSeenAt` trong 30 ngày gần nhất, hoặc trạm chưa có
-field `lastSeenAt`.
+- `$setOnInsert` khi chưa có `buoyId` → không đè `name`/`lat`/`lon` của writer
+  chuẩn (worker sync / bot).
+- `$set` cho doc còn `name: null` (doc placeholder) → vá `name`/`lat`/`lon` theo
+  feed. Bỏ op này khi feed cũng không có `name`.
+
+**FR-034 — Ẩn trạm đã chết và doc placeholder:**
+`listAll()` chỉ trả trạm có `lastSeenAt` trong 30 ngày gần nhất (hoặc chưa có field
+`lastSeenAt`) **và** không phải doc placeholder — placeholder = `name: null` kèm
+`source` thuộc `api-lazy-seed`/`api-cold-seed`, tức doc do bản cũ của API ghi bằng
+toạ độ client. Nhờ vậy vài chục doc rác không chặn fallback feed của FR-003.
 
 ### 2.6 Smart Weather Tips
 
@@ -461,7 +470,7 @@ báo), `description`/`icon` lấy bước gần 12:00 giờ địa phương nh�
 filter, để hai request tương đương trúng cùng document.
 
 **BR-22 — Ghi cache là fire-and-forget khi seed:**
-`seedIfAbsent` và `seedManyIfAbsent` được gọi bằng `void ... .catch(log)`, không
+`saveFromFeed` và `saveManyFromFeed` được gọi bằng `void ... .catch(log)`, không
 `await`, để không thêm độ trễ cho response.
 
 ---

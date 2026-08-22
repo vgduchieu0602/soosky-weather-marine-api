@@ -9,7 +9,7 @@ import BuoyStationSource from "../../repositories/IBuoyStationSource";
 import { BuoyWeatherDetail } from "../../entities/BuoyWeatherDetail";
 import { resilientSource } from "../resilientSource";
 import { resolveTide } from "../resolveTide";
-import { resolveBuoyName } from "../resolveBuoyName";
+import { resolveBuoyStation } from "../resolveBuoyStation";
 
 type TemperatureSource = 'ndbc' | 'weatherbit' | 'owm' | null;
 
@@ -49,7 +49,8 @@ export default class GetBuoyWeatherDetailUseCase {
         // Chỉ để lấy tình trạng thời tiết (conditionCode/icon/description) theo
         // lat/lon: NDBC là trạm đo cảm biến, không có khái niệm "trời nhiều mây".
         private _pointRepo: PointWeatherRepository,
-        // Fallback tên trạm khi DB "buoys" thiếu/chưa có name (xem resolveBuoyName).
+        // Fallback metadata trạm khi DB "buoys" thiếu/chưa có name, và là nguồn
+        // duy nhất được phép seed xuống DB (xem resolveBuoyStation).
         private _stationSource: BuoyStationSource
     ) {}
 
@@ -58,7 +59,7 @@ export default class GetBuoyWeatherDetailUseCase {
 
         // MỖI nguồn bọc resilientSource: lỗi -> null (partial) + log, KHÔNG 500.
         // tide: resolveTide (client truyền hoặc thử vài trạm gần nhất, lấy trạm đầu có data).
-        const [buoy, point, weatherBit, forecast, tideRes, buoyName] = await Promise.all([
+        const [buoy, point, weatherBit, forecast, tideRes, resolvedStation] = await Promise.all([
             resilientSource('buoy', `buoy:${query.buoyId}`,
                 () => this._buoyRepo.getBuoyWeather({ buoyId: query.buoyId })),
             resilientSource('current', `owmcur:${query.lat},${query.lon}`,
@@ -69,21 +70,25 @@ export default class GetBuoyWeatherDetailUseCase {
                 () => this._forecastRepo.getForecast({ lat: query.lat, lon: query.lon })),
             resolveTide(this._tideRepo, this._locator, query.tideStationId, query.lat, query.lon, today),
             // DB thiếu tên -> tự fallback activestations.xml; lỗi -> null (đã log).
-            resolveBuoyName(this._stationRepo, this._stationSource, query.buoyId),
+            resolveBuoyStation(this._stationRepo, this._stationSource, query.buoyId),
         ]);
 
-        // Lazy seed vị trí buoy vào "buoys" nếu chưa có (TH3) — best-effort,
-        // fire-and-forget, KHÔNG await để không thêm độ trễ cho response.
-        // Chỉ insert khi thiếu, không đè vị trí chuẩn bot crawl.
-        void this._stationRepo.seedIfAbsent({ buoyId: query.buoyId, name: null, lat: query.lat, lon: query.lon })
-            .catch((err) => console.warn(`[buoys] lazy seed failed: ${(err as Error)?.message ?? err}`));
+        // Lazy seed trạm vào "buoys" — best-effort, fire-and-forget, KHÔNG await
+        // để không thêm độ trễ cho response.
+        // CHỈ ghi khi data đến từ feed: name + lat/lon là VỊ TRÍ THẬT của trạm.
+        // (Bản cũ seed query.lat/query.lon = toạ độ client -> "buoys" đầy doc sai
+        // vị trí, name null, và chặn luôn fallback feed của /buoys.)
+        if (resolvedStation.fromFeed && resolvedStation.station) {
+            void this._stationRepo.saveFromFeed(resolvedStation.station)
+                .catch((err) => console.warn(`[buoys] lazy seed failed: ${(err as Error)?.message ?? err}`));
+        }
 
         // Thứ tự key BẮT BUỘC giống GetPointWeatherDetailUseCase — 2 endpoint dùng
         // chung entity WeatherDetail, FE render bằng cùng 1 component.
         const resolvedTemperature = resolveTemperature(buoy?.temperature, weatherBit?.temperature, point?.temperature);
         return {
             buoyId: query.buoyId,
-            buoyName,
+            buoyName: resolvedStation.station?.name ?? null,
             // lat/lon client truyền vào -> luôn có giá trị (Server đã validate).
             lat: query.lat,
             lon: query.lon,

@@ -21,7 +21,7 @@ const forecastRepo = {
 
 const stationRepo = {
     findByBuoyId: async () => null,
-    seedIfAbsent: async () => undefined
+    saveFromFeed: async () => undefined
 } as any
 
 const stationSource = {
@@ -120,7 +120,7 @@ test('buoy weather includes the station name from buoy metadata', async () => {
         locator,
         {
             findByBuoyId: async () => ({ buoyId: '41002', name: 'South Hatteras', lat: 31.76, lon: -74.84 }),
-            seedIfAbsent: async () => undefined
+            saveFromFeed: async () => undefined
         } as any,
         { getPointWeather: async () => pointWeather(31) } as any,
         stationSource
