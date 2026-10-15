@@ -21,7 +21,11 @@ const forecastRepo = {
 
 const stationRepo = {
     findByBuoyId: async () => null,
-    seedIfAbsent: async () => undefined
+    saveFromFeed: async () => undefined
+} as any
+
+const stationSource = {
+    listActive: async () => []
 } as any
 
 function pointWeather (temperature: number | null) {
@@ -79,7 +83,8 @@ test('buoy falls back to Weatherbit temperature when NDBC ATMP is missing', asyn
         forecastRepo,
         locator,
         stationRepo,
-        { getPointWeather: async () => pointWeather(31) } as any
+        { getPointWeather: async () => pointWeather(31) } as any,
+        stationSource
     )
 
     const detail = await useCase.execute({ buoyId: '46026', lat: 10, lon: 106 }) as DetailWithTemperatureSource
@@ -96,7 +101,8 @@ test('buoy keeps measured NDBC air temperature ahead of coordinate sources', asy
         forecastRepo,
         locator,
         stationRepo,
-        { getPointWeather: async () => pointWeather(31) } as any
+        { getPointWeather: async () => pointWeather(31) } as any,
+        stationSource
     )
 
     const detail = await useCase.execute({ buoyId: '41002', lat: 10.1, lon: 106.1 }) as DetailWithTemperatureSource
@@ -114,9 +120,10 @@ test('buoy weather includes the station name from buoy metadata', async () => {
         locator,
         {
             findByBuoyId: async () => ({ buoyId: '41002', name: 'South Hatteras', lat: 31.76, lon: -74.84 }),
-            seedIfAbsent: async () => undefined
+            saveFromFeed: async () => undefined
         } as any,
-        { getPointWeather: async () => pointWeather(31) } as any
+        { getPointWeather: async () => pointWeather(31) } as any,
+        stationSource
     )
 
     const detail = await useCase.execute({ buoyId: '41002', lat: 10.15, lon: 106.15 }) as any

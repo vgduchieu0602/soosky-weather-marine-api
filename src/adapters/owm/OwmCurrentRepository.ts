@@ -18,8 +18,6 @@ export default class OwmCurrentRepository implements PointWeatherRepository {
 
         const json: any = await res.json();
 
-        // Endpoint current KHÔNG có `sys.pod` (chỉ forecast mới có) -> hậu tố
-        // ngày/đêm lấy từ chính `weather[0].icon` OWM trả về.
         const weather = json.weather?.[0];
         const pod = partOfDay(weather);
         const windDirection = WindDirection.from(json.wind?.deg);

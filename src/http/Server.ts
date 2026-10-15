@@ -24,7 +24,6 @@ import GetAlertsUseCase from '../domain/use-cases/alert/GetAlertsUseCase';
 import GetWeatherTipsUseCase from '../domain/use-cases/tips/GetWeatherTipsUseCase';
 import { MAP_LAYERS, MapLayer } from '../domain/entities/MapTile';
 import { PERSONAS, Persona, validateWeatherTipsWeather } from '../domain/entities/WeatherTips';
-import RateLimiter from './RateLimiter';
 import { getResponseMeta, runWithResponseTrace } from '../observability/responseTrace';
 
 export {Server as default}
@@ -32,7 +31,7 @@ export {Server as default}
 /*----------------------------------------------------------------------------------------*/
 
 const HTTP_DEFAULT_PORT = 3002;
-const HTTP_DEFAULT_HOST = "0.0.0.0";
+const HTTP_DEFAULT_HOST = "127.0.0.1";
 
 // Station id NOAA CO-OPS luôn là 7 chữ số. Chặn tại đây để id rác (chữ, ký tự
 // đặc biệt) trả 400 thay vì đi 1 vòng NOAA rồi về 404 với message của họ.
@@ -85,7 +84,6 @@ type ServerUseCases = {
 class Server {
     constructor (
         private _useCases: ServerUseCases,
-        private _rateLimiter: RateLimiter,
         private _mapTilesEnabled = false
     ) {
         this._registerRouter();
@@ -103,6 +101,9 @@ class Server {
     }
 
     private readonly routes = [
+        ['GET', '/',
+            this._GET_index.bind(this),
+        ],
         ['GET', '/health',
             this._GET_health.bind(this),
         ],
@@ -128,40 +129,18 @@ class Server {
             this._GET_alerts.bind(this)
         ],
         ['POST', '/api/v1/weather-tips',
-            // Smart Weather Tips (Gemini). POST vì nhận body JSON {persona, weather},
-            // không phải query — weather là object lớn, không hợp query string.
             this._POST_weatherTips.bind(this)
         ]
     ]
 
     private _registerRouter(): void {
-        // Tin 1 hop proxy trước (nginx/Render/Cloudflare) -> req.ip lấy từ
-        // X-Forwarded-For thay vì IP proxy. Bắt buộc để rate limit per-IP đúng.
-        // Nếu deploy KHÔNG qua proxy: đổi về false. Nhiều tầng proxy: tăng số hop.
         this._server.set('trust proxy', 1)
 
-        // Parse body JSON (cho POST /weather-tips). Đăng ký trước route; GET
-        // không có body nên không ảnh hưởng. Giới hạn size tránh payload lớn bất thường.
         this._server.use(express.json({limit: '64kb'}))
 
         this._server.use((_req: Request, _res: Response, next: NextFunction) => {
             runWithResponseTrace(() => next())
         })
-
-        this._server.use((req: Request, _res: Response, next: NextFunction) => {
-            // Map tile bùng nổ theo lô (1 lần zoom/pan xin vài chục tile) -> đếm chung
-            // với endpoint data sẽ chặn cả user hợp lệ, nên MIỄN rate limit. Trần chi
-            // phí OWM đã có ở tầng khác: MAP_TILES_ENABLED + LRU cache tile trong RAM.
-            // req.path bỏ query string.
-            if (req.path.startsWith('/api/v1/maps/')) return next()
-
-            if (this._rateLimiter.check(req.ip ?? 'unknown')) {
-                throw new ClientError('Too many requests.', 429, 'RATE_LIMITED')
-            }
-
-            next()
-        })
-
 
         for (const [method, path, ...handlers] of this.routes) {
             (this._server as any)[(method as string).toLowerCase()](path, ...handlers)
@@ -178,9 +157,6 @@ class Server {
             let message: string;
             let code: string;
 
-            // Nguồn upstream lỗi KHÔNG còn tới đây (đã nuốt thành null trong use-case
-            // qua resilientSource -> response 200 partial). 500 ở đây chỉ còn lỗi nội bộ
-            // ngoài dự kiến. Client nhận message chung, server log đầy đủ để debug.
             switch (true) {
                 case (err instanceof ClientError):
                     statusCode = err.statusCode;
@@ -224,6 +200,10 @@ class Server {
 
             next()
         })
+    }
+
+    private _GET_index(_req: Request, res: Response):any {
+        return res.json({ message: 'Hello, World! This is Weather Marine API.' })
     }
 
     private _GET_health(_req: Request, res: Response):any {

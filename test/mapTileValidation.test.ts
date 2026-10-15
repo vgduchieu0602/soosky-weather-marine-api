@@ -2,7 +2,6 @@ import assert from 'node:assert/strict'
 import test from 'node:test'
 import Server from '../src/http/Server'
 import ClientError from '../src/http/ClientError'
-import RateLimiter from '../src/http/RateLimiter'
 
 function createServer (
     getTile = async () => ({buffer: Buffer.from('tile'), contentType: 'image/png'}),
@@ -19,7 +18,7 @@ function createServer (
         radar: {getRadar: {execute: async () => undefined}},
         alert: {getAlerts: {execute: async () => undefined}},
         tips: {getWeatherTips: {execute: async () => undefined}}
-    } as any, new RateLimiter(1, 1, false), mapTilesEnabled)
+    } as any, mapTilesEnabled)
 }
 
 function mapResponse () {

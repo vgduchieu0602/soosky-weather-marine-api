@@ -2,16 +2,11 @@ import { CacheStore, CacheHit } from '../../cache/ICacheStore'
 import { OwmForecast } from '../../../domain/entities/OwmForecast'
 import { OwmForecastQuery } from '../../../domain/repositories/IOwmForecastRepository'
 import OwmForecastCacheModel from '../models/OwmForecastCacheModel'
-import config from '../../../config'
 
 export default class MongoOwmForecastCache implements CacheStore<OwmForecastQuery, OwmForecast> {
     public async read (query: OwmForecastQuery): Promise<CacheHit<OwmForecast> | null> {
         const doc = await OwmForecastCacheModel.findOne({ lat: query.lat, lon: query.lon }).lean()
-        if (
-            !doc ||
-            typeof doc.timezoneOffsetSeconds !== "number" ||
-            doc.forecastSource !== config.owm.forecastSource
-        ) return null;
+        if (!doc || typeof doc.timezoneOffsetSeconds !== "number") return null;
         return {
             value: {
                 lat: doc.lat,
@@ -29,7 +24,6 @@ export default class MongoOwmForecastCache implements CacheStore<OwmForecastQuer
         await OwmForecastCacheModel.findOneAndUpdate(
             { lat: query.lat, lon: query.lon },
             { $set: {
-                forecastSource: config.owm.forecastSource,
                 timezoneOffsetSeconds: value.timezoneOffsetSeconds,
                 hourly: value.hourly,
                 daily: value.daily

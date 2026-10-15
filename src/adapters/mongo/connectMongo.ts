@@ -14,5 +14,8 @@ export default async function connectMongo(options?: ConnectMongoOptions): Promi
     } else {
         await mongoose.connect(config.mongo.uri, { maxPoolSize: options.maxPoolSize })
     }
-    console.log('Mongo connected.')
+    // In host + database: MONGO_URI có thể không ghi dbname (mongoose mặc định
+    // "test"), nên đây là cách nhanh nhất để phát hiện API và worker buoy-sync
+    // đang nối 2 DB khác nhau.
+    console.log(`Mongo connected: host=${mongoose.connection.host} db=${mongoose.connection.name}`)
 }
